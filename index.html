@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Nuanu Mechanic</title>
+<meta name="theme-color" content="#0f5e4a">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<style>
+  :root{
+    --ink:#14212b; --muted:#5d6b76; --line:#dde3e8; --bg:#f3f5f7; --card:#fff;
+    --brand:#0f5e4a; --brand-2:#e6f2ee; --warn:#b4540a; --warn-2:#fdf0e3;
+    --bad:#b42318; --bad-2:#fdecea; --ok:#1d7a3a; --ok-2:#e7f5ec; --info:#1c5d99; --info-2:#e8f1fa;
+    --r:12px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+  header{position:sticky;top:0;z-index:5;background:var(--brand);color:#fff;display:flex;align-items:center;gap:8px;padding:10px 12px;min-height:52px}
+  header .title{font-weight:700;font-size:17px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  header button{background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:8px;padding:8px 12px;font-size:15px}
+  main{max-width:720px;margin:0 auto;padding:12px 12px 90px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:12px}
+  h2{font-size:20px;margin:0 0 4px} h3{font-size:16px;margin:0 0 8px}
+  .muted{color:var(--muted)} .small{font-size:13px}
+  .row{display:flex;gap:8px;align-items:center} .row>*{flex:1}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  label{display:block;font-weight:600;margin:12px 0 6px}
+  label .req{color:var(--bad)}
+  input,select,textarea{width:100%;font:inherit;padding:11px 12px;border:1px solid #c9d2d9;border-radius:10px;background:#fff;color:var(--ink)}
+  textarea{min-height:90px;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);border-color:var(--brand)}
+  .btn{display:block;width:100%;text-align:center;border:0;border-radius:10px;padding:14px;font:600 16px/1.2 inherit;background:var(--brand);color:#fff;text-decoration:none;cursor:pointer}
+  .btn.alt{background:var(--brand-2);color:var(--brand)}
+  .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .btn.sm{padding:9px 12px;font-size:14px;width:auto;display:inline-block}
+  .btn:disabled{opacity:.55}
+  .stack>*+*{margin-top:8px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{border:1px solid #c9d2d9;background:#fff;border-radius:999px;padding:8px 13px;font-size:14px;cursor:pointer;user-select:none}
+  .chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+  .pill{display:inline-block;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700}
+  .p-ok{background:var(--ok-2);color:var(--ok)} .p-warn{background:var(--warn-2);color:var(--warn)}
+  .p-bad{background:var(--bad-2);color:var(--bad)} .p-info{background:var(--info-2);color:var(--info)} .p-mute{background:#eef1f3;color:var(--muted)}
+  .list .item{display:block;padding:12px 2px;border-bottom:1px solid var(--line);color:inherit;text-decoration:none;cursor:pointer}
+  .list .item:last-child{border-bottom:0}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
+  .kv div:nth-child(odd){color:var(--muted)}
+  .hist{border-left:3px solid var(--line);padding-left:12px;margin:14px 0}
+  .hist.maintenance{border-color:var(--brand)} .hist.activity{border-color:var(--info)}
+  .pre{white-space:pre-line}
+  .thumbs{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .thumbs img{width:76px;height:76px;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:#eef1f3}
+  .thumb{position:relative}
+  .thumb button{position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;border:0;background:var(--bad);color:#fff;font-weight:700;line-height:24px;padding:0}
+  .pline{border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:8px;background:#fafbfc}
+  .pline .top{display:flex;gap:8px;align-items:flex-start}
+  .pline .top div{flex:1}
+  .x{border:0;background:var(--bad-2);color:var(--bad);border-radius:8px;padding:6px 10px;font-weight:700}
+  .results{border:1px solid var(--line);border-radius:10px;margin-top:6px;max-height:260px;overflow:auto;background:#fff}
+  .results div{padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+  .results div:last-child{border-bottom:0}
+  .group{border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:10px}
+  .group h4{margin:0 0 8px;font-size:15px}
+  .big{font-size:34px;font-weight:800;line-height:1}
+  .stat{text-align:center;padding:10px;border-radius:10px;background:#f6f8f9;cursor:pointer}
+  .stat b{display:block;font-size:22px}
+  .loading{padding:40px;text-align:center;color:var(--muted)}
+  .err{background:var(--bad-2);color:var(--bad);padding:12px;border-radius:10px}
+  #toast{position:fixed;left:12px;right:12px;bottom:16px;max-width:696px;margin:0 auto;background:var(--ink);color:#fff;padding:14px;border-radius:12px;display:none;z-index:20;white-space:pre-line}
+  .toggle{display:flex;border:1px solid #c9d2d9;border-radius:10px;overflow:hidden}
+  .toggle span{flex:1;text-align:center;padding:10px;cursor:pointer}
+  .toggle span.on{background:var(--brand);color:#fff}
+  .hide{display:none!important}
+  #scanner{position:fixed;inset:0;background:#000;z-index:30;display:flex;flex-direction:column}
+  #scanner video{flex:1;width:100%;object-fit:cover;min-height:0}
+  #scanner .frame{position:absolute;left:50%;top:42%;width:62vw;max-width:300px;aspect-ratio:1;transform:translate(-50%,-50%);border:3px solid #fff;border-radius:16px;box-shadow:0 0 0 9999px rgba(0,0,0,.35);pointer-events:none}
+  #scanner .bar{display:flex;gap:8px;padding:12px;background:#111}
+  #scanner .msg{position:absolute;top:12px;left:0;right:0;text-align:center;color:#fff;font-weight:600}
+</style>
+</head>
+<body>
+<header>
+  <button id="backBtn" onclick="back()">Back</button>
+  <div class="title" id="title">Nuanu Mechanic</div>
+  <button onclick="goHome()">Home</button>
+</header>
+<main id="app"><div class="loading">Loading...</div></main>
+<div id="toast"></div>
+<input type="file" id="qrInput" accept="image/*" capture="environment" class="hide">
+
+<script>
+const QS = new URLSearchParams(location.search);
+const INIT = { page: QS.get('page') || (QS.get('v') ? 'asset' : QS.get('p') ? 'part' : 'home'), v: QS.get('v') || '', p: QS.get('p') || '' };
+const BASE = location.origin + location.pathname.replace(/[^/]*$/, '');   // folder of this page on GitHub Pages
+let BOOT = null, current = null, ADMIN_PIN = '';
+const stack = [];
+
+// ---------- helpers
+const $ = s => document.querySelector(s);
+const app = () => $('#app');
+function h(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// Calls the Apps Script backend. text/plain body = no CORS preflight, works from GitHub Pages.
+async function api(action, ...args){
+  const url = window.APP_CONFIG && window.APP_CONFIG.API_URL;
+  if (!url || url.indexOf('script.google.com') < 0 || url.indexOf('PASTE_') > -1) throw new Error('API_URL is not set in config.js');
+  let res;
+  try {
+    res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify({action, args}) });
+  } catch(e) { throw new Error('No connection to the server. Check the Wi-Fi and try again.'); }
+  let j;
+  try { j = await res.json(); } catch(e) { throw new Error('Server did not answer correctly (is the web app deployed for "Anyone"?)'); }
+  if (!j.ok) throw new Error(j.error || 'Server error');
+  return j.data;
+}
+const store = {
+  get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+};
+function toast(msg, ms){ const t = $('#toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', ms || 3500); }
+function setTitle(t){ $('#title').textContent = t; }
+function loading(){ app().innerHTML = '<div class="loading">Loading...</div>'; }
+function showError(e){ app().innerHTML = '<div class="err">' + h(e && e.message || e) + '</div>'; }
+function rp(n){ return 'Rp' + Math.round(n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+function partById(id){ return BOOT.parts.find(p => p.id === id); }
+function addDaysISO(iso, n){ const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10); }
+function statusPill(s){
+  const c = {'Done this month':'p-ok','Scheduled':'p-info','Due soon':'p-warn','Overdue':'p-bad','Not yet serviced':'p-bad'}[s] || 'p-mute';
+  return '<span class="pill ' + c + '">' + h(s) + '</span>';
+}
+
+// ---------- navigation (works with the phone's back button too)
+let pushed = 0;
+function urlFor(c){
+  if (c.view === 'asset') return '?v=' + encodeURIComponent(c.arg);
+  if (c.view === 'part') return '?p=' + encodeURIComponent(c.arg);
+  if (['calendar','parts','jobs'].indexOf(c.view) > -1) return '?page=' + c.view;
+  if (c.view === 'home') return location.pathname;
+  return null;
+}
+function go(view, arg){
+  if (current) stack.push(current);
+  current = {view, arg};
+  history.pushState({n: ++pushed}, '', urlFor(current) || location.href);
+  render();
+}
+function popView(){
+  current = stack.pop() || {view:'home'};
+  const u = urlFor(current); if (u) history.replaceState(history.state, '', u);
+  render();
+}
+function back(){ if (pushed > 0) history.back(); else popView(); }
+window.addEventListener('popstate', () => { if (pushed > 0) pushed--; popView(); });
+function goHome(){ stack.length = 0; pushed = 0; current = {view:'home'}; history.replaceState(null, '', location.pathname); render(); }
+function render(){
+  window.scrollTo(0,0);
+  $('#backBtn').classList.toggle('hide', current.view === 'home');
+  VIEWS[current.view](current.arg);
+}
+
+// ---------- QR decode (photo of the QR, works on Android and iOS)
+function loadImage(file){
+  return new Promise((res, rej) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => { URL.revokeObjectURL(url); res(img); };
+    img.onerror = () => rej(new Error('Cannot read image'));
+    img.src = url;
+  });
+}
+async function decodeQrFile(file){
+  const img = await loadImage(file);
+  for (const max of [1000, 700, 1500]) {
+    const s = Math.min(1, max / Math.max(img.width, img.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+    const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0, c.width, c.height);
+    const d = ctx.getImageData(0, 0, c.width, c.height);
+    const code = jsQR(d.data, c.width, c.height, {inversionAttempts: 'attemptBoth'});
+    if (code && code.data) return code.data;
+  }
+  return null;
+}
+// Live camera scan (GitHub Pages is HTTPS, so the camera is allowed). Falls back to a photo.
+function scanQr(){
+  if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) return scanQrPhoto();
+  return new Promise(resolve => {
+    const box = document.createElement('div');
+    box.id = 'scanner';
+    box.innerHTML = '<video playsinline muted autoplay></video><div class="frame"></div><div class="msg">Point the camera at the QR code</div>' +
+      '<div class="bar"><button class="btn ghost" data-x="photo">Use photo</button><button class="btn" data-x="cancel">Cancel</button></div>';
+    document.body.appendChild(box);
+    const video = box.querySelector('video'), canvas = document.createElement('canvas'), ctx = canvas.getContext('2d', {willReadFrequently: true});
+    let stream = null, done = false;
+    const stop = () => { if (done) return false; done = true; if (stream) stream.getTracks().forEach(t => t.stop()); box.remove(); return true; };
+    const finish = val => { if (stop()) resolve(val); };
+    const usePhoto = () => { if (stop()) scanQrPhoto().then(resolve); };
+    box.querySelector('[data-x="cancel"]').onclick = () => finish(null);
+    box.querySelector('[data-x="photo"]').onclick = usePhoto;
+    const tick = () => {
+      if (done) return;
+      if (video.readyState >= 2 && video.videoWidth) {
+        const s = Math.min(1, 640 / Math.max(video.videoWidth, video.videoHeight));
+        canvas.width = Math.round(video.videoWidth * s); canvas.height = Math.round(video.videoHeight * s);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const d = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(d.data, canvas.width, canvas.height, {inversionAttempts: 'dontInvert'});
+        if (code && code.data) { if (navigator.vibrate) navigator.vibrate(80); return finish(code.data); }
+      }
+      requestAnimationFrame(tick);
+    };
+    navigator.mediaDevices.getUserMedia({video: {facingMode: {ideal: 'environment'}}, audio: false})
+      .then(st => { stream = st; if (done) { st.getTracks().forEach(t => t.stop()); return; } video.srcObject = st; video.play().catch(() => {}); requestAnimationFrame(tick); })
+      .catch(() => { box.querySelector('.msg').textContent = 'Camera not allowed. Tap "Use photo" or allow the camera in browser settings.'; });
+  });
+}
+function scanQrPhoto(){
+  return new Promise(resolve => {
+    const inp = $('#qrInput');
+    inp.value = '';
+    inp.onchange = async () => {
+      if (!inp.files[0]) return resolve(null);
+      toast('Reading QR...');
+      try { resolve(await decodeQrFile(inp.files[0])); } catch(e){ resolve(null); }
+    };
+    inp.click();
+  });
+}
+function qrParam(text, key){
+  const m = String(text).match(new RegExp('[?&]' + key + '=([^&#]+)'));
+  return decodeURIComponent(m ? m[1] : text).trim();
+}
+
+// ---------- photos
+function resizeImage(file, max, q){
+  return loadImage(file).then(img => {
+    const s = Math.min(1, (max || 1600) / Math.max(img.width, img.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', q || 0.75);
+  });
+}
+function photoPicker(el){
+  const photos = [];
+  const max = BOOT.config.maxPhotos;
+  el.innerHTML =
+    '<div class="grid2"><button type="button" class="btn alt" data-a="cam">Take photo</button>' +
+    '<button type="button" class="btn ghost" data-a="lib">From gallery</button></div>' +
+    '<input type="file" accept="image/*" capture="environment" class="hide" data-i="cam">' +
+    '<input type="file" accept="image/*" multiple class="hide" data-i="lib">' +
+    '<div class="thumbs"></div>';
+  const thumbs = el.querySelector('.thumbs');
+  const draw = () => {
+    thumbs.innerHTML = photos.map((p, i) => '<div class="thumb"><img src="' + p + '"><button type="button" data-rm="' + i + '">x</button></div>').join('');
+  };
+  thumbs.addEventListener('click', e => { const i = e.target.dataset.rm; if (i != null) { photos.splice(+i, 1); draw(); } });
+  ['cam','lib'].forEach(k => {
+    const inp = el.querySelector('[data-i="' + k + '"]');
+    el.querySelector('[data-a="' + k + '"]').onclick = () => { inp.value = ''; inp.click(); };
+    inp.onchange = async () => {
+      for (const f of Array.from(inp.files)) {
+        if (photos.length >= max) { toast('Max ' + max + ' photos'); break; }
+        try { photos.push(await resizeImage(f)); } catch(e){ toast('Could not read one photo'); }
+      }
+      draw();
+    };
+  });
+  return { get: () => photos.slice() };
+}
+
+// ---------- mechanics
+function mechPicker(el){
+  const sel = new Set((store.get('lastMechs') || []).filter(n => BOOT.mechanics.indexOf(n) > -1));
+  const draw = () => {
+    el.innerHTML = '<div class="chips">' + BOOT.mechanics.map(n =>
+      '<span class="chip' + (sel.has(n) ? ' on' : '') + '" data-n="' + h(n) + '">' + h(n) + '</span>').join('') + '</div>';
+  };
+  el.addEventListener('click', e => {
+    const n = e.target.dataset && e.target.dataset.n; if (!n) return;
+    sel.has(n) ? sel.delete(n) : sel.add(n); draw();
+  });
+  draw();
+  return { get: () => Array.from(sel), remember: () => store.set('lastMechs', Array.from(sel)) };
+}
+
+// ---------- spare parts picker (search or scan part QR)
+function partsPicker(el){
+  const lines = [];
+  const conds = BOOT.config.conditions;
+  el.innerHTML =
+    '<div class="row"><input type="search" placeholder="Search part name or ID" data-q>' +
+    '<button type="button" class="btn alt sm" style="flex:0 0 auto" data-scan>Scan QR</button></div>' +
+    '<div class="results hide" data-res></div><div data-lines></div>';
+  const q = el.querySelector('[data-q]'), res = el.querySelector('[data-res]'), box = el.querySelector('[data-lines]');
+  const add = id => {
+    const p = partById(id);
+    if (!p) return toast('Part "' + id + '" not found');
+    if (lines.length >= BOOT.config.maxParts) return toast('Max ' + BOOT.config.maxParts + ' parts');
+    const ex = lines.find(l => l.id === id);
+    if (ex) ex.qty++; else lines.push({id, qty: 1, cond: conds[0]});
+    q.value = ''; res.classList.add('hide'); draw();
+  };
+  const draw = () => {
+    box.innerHTML = lines.map((l, i) => {
+      const p = partById(l.id);
+      const low = p.avail <= 0 ? '<span class="pill p-bad">Stock ' + p.avail + '</span>' : '<span class="pill p-mute">Stock ' + p.avail + '</span>';
+      return '<div class="pline"><div class="top"><div><b>' + h(p.name) + '</b><div class="small muted">' + h(p.id) + ' ' + low + '</div></div>' +
+        '<button type="button" class="x" data-rm="' + i + '">Remove</button></div>' +
+        '<div class="grid2" style="margin-top:8px"><input type="number" min="1" step="1" value="' + l.qty + '" data-qty="' + i + '" inputmode="numeric">' +
+        '<select data-cond="' + i + '">' + conds.map(c => '<option' + (c === l.cond ? ' selected' : '') + '>' + h(c) + '</option>').join('') + '</select></div></div>';
+    }).join('');
+  };
+  q.addEventListener('input', () => {
+    const t = q.value.trim().toLowerCase();
+    if (t.length < 2) { res.classList.add('hide'); return; }
+    const words = t.split(/\s+/);
+    const hits = BOOT.parts.filter(p => { const s = (p.id + ' ' + p.name + ' ' + p.cat).toLowerCase(); return words.every(w => s.indexOf(w) > -1); }).slice(0, 15);
+    res.innerHTML = hits.length ? hits.map(p => '<div data-add="' + h(p.id) + '"><b>' + h(p.name) + '</b><br><span class="small muted">' + h(p.id) + ' | stock ' + p.avail + '</span></div>').join('') : '<div class="muted">No part found</div>';
+    res.classList.remove('hide');
+  });
+  res.addEventListener('click', e => { const d = e.target.closest('[data-add]'); if (d) add(d.dataset.add); });
+  el.querySelector('[data-scan]').onclick = async () => {
+    const text = await scanQr();
+    if (!text) return toast('No QR found in the photo. Try closer and steady.');
+    add(qrParam(text, 'p'));
+  };
+  box.addEventListener('click', e => { const i = e.target.dataset.rm; if (i != null) { lines.splice(+i, 1); draw(); } });
+  box.addEventListener('change', e => {
+    const d = e.target.dataset;
+    if (d.qty != null) lines[+d.qty].qty = Math.max(1, parseInt(e.target.value, 10) || 1);
+    if (d.cond != null) lines[+d.cond].cond = e.target.value;
+  });
+  return { get: () => lines.map(l => Object.assign({}, l)) };
+}
+
+function pinField(){
+  return BOOT.config.needSubmitPin ? '<label>Workshop PIN <span class="req">*</span></label><input type="password" inputmode="numeric" id="f_pin" value="' + h(store.get('pin') || '') + '">' : '';
+}
+function readPin(){ const el = $('#f_pin'); if (!el) return ''; store.set('pin', el.value); return el.value; }
+
+// ---------- views
+const VIEWS = {};
+
+VIEWS.home = function(){
+  setTitle(BOOT.appName);
+  const recent = store.get('recent') || [];
+  app().innerHTML =
+    '<div class="card"><h3>Find vehicle or area</h3>' +
+    '<div class="row"><input type="search" id="q" placeholder="ID, type or department">' +
+    '<button class="btn alt sm" style="flex:0 0 auto" id="scanV">Scan QR</button></div>' +
+    '<div class="list" id="res"></div></div>' +
+    (recent.length ? '<div class="card"><h3>Recently opened</h3><div class="chips">' + recent.map(r => '<span class="chip" data-v="' + h(r) + '">' + h(r) + '</span>').join('') + '</div></div>' : '') +
+    '<div class="card stack">' +
+      '<button class="btn" onclick="go(\'calendar\')">Maintenance calendar</button>' +
+      '<button class="btn alt" onclick="go(\'parts\')">Spare parts and stock</button>' +
+      '<button class="btn alt" onclick="go(\'jobs\')">Job completion (admin)</button>' +
+      '<div class="grid2"><a class="btn ghost" href="print.html?type=vehicle">Print vehicle QR</a>' +
+      '<a class="btn ghost" href="print.html?type=part">Print part QR</a></div>' +
+    '</div>';
+  const q = $('#q'), res = $('#res');
+  q.oninput = () => {
+    const t = q.value.trim().toLowerCase();
+    if (!t) { res.innerHTML = ''; return; }
+    const hits = BOOT.assets.filter(a => (a.id + ' ' + a.type + ' ' + a.dept).toLowerCase().indexOf(t) > -1).slice(0, 30);
+    res.innerHTML = hits.map(a => '<div class="item" data-v="' + h(a.id) + '"><b>' + h(a.id) + '</b> ' +
+      (a.cls === 'Area' ? '<span class="pill p-info">Area</span>' : '') + '<div class="small muted">' + h([a.type, a.dept].filter(x => x && x !== '-').join(' | ')) + '</div></div>').join('') || '<div class="muted small">Nothing found</div>';
+  };
+  app().onclick = e => { const v = e.target.closest('[data-v]'); if (v) go('asset', v.dataset.v); };
+  $('#scanV').onclick = async () => {
+    const text = await scanQr();
+    if (!text) return toast('No QR found in the photo');
+    if (/[?&]p=/.test(text)) go('part', qrParam(text, 'p')); else go('asset', qrParam(text, 'v'));
+  };
+};
+
+VIEWS.asset = async function(id){
+  setTitle(id); loading();
+  app().onclick = null;
+  let d;
+  try { d = await api('apiGetAsset', id, 0); } catch(e){ return showError(e); }
+  const recent = (store.get('recent') || []).filter(x => x !== d.asset.id); recent.unshift(d.asset.id); store.set('recent', recent.slice(0, 8));
+  const a = d.asset, m = d.maint;
+  let html = '<div class="card"><h2>' + h(a.id) + '</h2><div class="muted">' + h([a.type, a.dept].filter(x => x && x !== '-').join(' | ')) + '</div>' +
+    '<div class="kv" style="margin-top:10px">' +
+    (a.pic ? '<div>PIC</div><div>' + h(a.pic) + (a.contact ? ' <a href="https://wa.me/' + h(a.contact.replace(/\D/g, '')) + '">' + h(a.contact) + '</a>' : '') + '</div>' : '') +
+    (a.notes ? '<div>Notes</div><div>' + h(a.notes) + '</div>' : '') +
+    '<div>Status</div><div>' + h(a.status || '-') + '</div></div>';
+  if (m) {
+    html += '<div style="margin-top:12px">' + statusPill(m.status) + '</div><div class="kv" style="margin-top:8px">' +
+      '<div>Last service</div><div>' + (m.lastDate ? h(m.lastDate + ' - ' + m.lastType) : '-') + '</div>' +
+      '<div>Next service</div><div>' + (m.nextDate ? h(m.nextDate + ' - ' + m.nextType) : h(m.nextType)) + '</div></div>';
+  }
+  html += '</div><div class="card stack">' +
+    '<button class="btn" id="bAct">' + (a.cls === 'Area' ? 'Log area activity' : 'Log activity / repair') + '</button>' +
+    (a.cls === 'Vehicle' ? '<button class="btn alt" id="bMaint">Scheduled maintenance</button>' : '') +
+    '</div><div class="card"><h3>History <span class="muted small">(' + d.total + ')</span></h3><div id="hist"></div>' +
+    '<button class="btn ghost hide" id="more">Load more</button></div>';
+  app().innerHTML = html;
+  $('#bAct').onclick = () => go('activity', {asset: a});
+  if ($('#bMaint')) $('#bMaint').onclick = () => go('maintenance', {asset: a, maint: m});
+  let offset = 0;
+  const addHist = data => {
+    $('#hist').insertAdjacentHTML('beforeend', data.history.map(histItem).join('') || '<div class="muted">No records yet.</div>');
+    offset = data.offset + data.history.length;
+    $('#more').classList.toggle('hide', offset >= data.total);
+  };
+  addHist(d);
+  $('#more').onclick = async () => {
+    $('#more').disabled = true;
+    try { addHist(await api('apiGetAsset', id, offset)); } catch(e){ toast(e.message); }
+    $('#more').disabled = false;
+  };
+};
+
+function histItem(x){
+  const parts = x.parts.map(p => { const pp = partById(p.text); return '- ' + (pp ? pp.name : p.text) + ' x' + p.qty + (p.cond ? ' (' + p.cond + ')' : ''); }).join('\n');
+  const photos = x.photos.map(id => '<a href="https://drive.google.com/file/d/' + h(id) + '/view" target="_blank"><img loading="lazy" src="https://drive.google.com/thumbnail?id=' + h(id) + '&sz=w200" onerror="this.style.display=\'none\'"></a>').join('');
+  return '<div class="hist ' + x.kind + '"><div class="row" style="align-items:baseline"><b>' + h(x.title) + '</b>' +
+    '<span class="small muted" style="text-align:right">' + h(x.date) + '</span></div>' +
+    '<div class="small muted">' + h(x.mechanics) + (x.requestedBy ? ' | req: ' + h(x.requestedBy) : '') + '</div>' +
+    '<div class="pre" style="margin-top:4px">' + h(x.text) + '</div>' +
+    (parts ? '<div class="pre small" style="margin-top:4px"><b>Parts</b>\n' + h(parts) + '</div>' : '') +
+    (x.notes ? '<div class="small muted pre" style="margin-top:4px">' + h(x.notes) + '</div>' : '') +
+    (photos ? '<div class="thumbs">' + photos + '</div>' : '') +
+    '<div class="small muted" style="margin-top:4px">' + h(x.id) + '</div></div>';
+}
+
+VIEWS.activity = function(arg){
+  const a = arg.asset;
+  setTitle((a.cls === 'Area' ? 'Area activity ' : 'Activity ') + a.id);
+  app().onclick = null;
+  const today = BOOT.config.today;
+  app().innerHTML =
+    '<div class="card"><b>' + h(a.id) + '</b> <span class="muted">' + h([a.type, a.dept].filter(x => x && x !== '-').join(' | ')) + '</span></div>' +
+    '<div class="card">' +
+    '<label>Date <span class="req">*</span></label><input type="date" id="f_date" value="' + today + '" max="' + today + '">' +
+    '<div class="grid2"><div><label>Requested by</label><input id="f_req" list="reqList" placeholder="e.g. LOD Transport"></div>' +
+    '<div><label>WO / SO number</label><input id="f_wo" placeholder="e.g. SO/2026/04148"></div></div>' +
+    '<datalist id="reqList">' + ['Transport','LOD Transport','Internal Transport','Driver Transport','Last Mile','Taxi'].concat(Array.from(new Set(BOOT.assets.map(x => x.dept).filter(Boolean)))).map(x => '<option value="' + h(x) + '">').join('') + '</datalist>' +
+    '<label>Job description <span class="req">*</span></label><textarea id="f_job" placeholder="1. ...&#10;2. ..."></textarea>' +
+    '<label>Mechanics <span class="req">*</span></label><div id="f_mech"></div>' +
+    '<label>Spare parts used</label><div id="f_parts"></div>' +
+    '<label>Notes / findings</label><textarea id="f_notes" style="min-height:60px"></textarea>' +
+    '<label>Photos (evidence)' + (BOOT.config.requirePhotoActivity ? ' <span class="req">*</span>' : '') + '</label><div id="f_photos"></div>' +
+    pinField() +
+    '</div><button class="btn" id="save">Save and send to Telegram</button>';
+  const mech = mechPicker($('#f_mech')), parts = partsPicker($('#f_parts')), photos = photoPicker($('#f_photos'));
+  $('#save').onclick = async () => {
+    const f = {
+      assetId: a.id, date: $('#f_date').value, requestedBy: $('#f_req').value, woNumber: $('#f_wo').value,
+      job: $('#f_job').value, mechanics: mech.get(), parts: parts.get(), notes: $('#f_notes').value,
+      photos: photos.get(), pin: readPin()
+    };
+    if (!f.job.trim()) return toast('Fill in the job description');
+    if (!f.mechanics.length) return toast('Choose at least one mechanic');
+    if (BOOT.config.requirePhotoActivity && !f.photos.length) return toast('Add at least one photo');
+    await submit('apiSaveActivity', f, mech);
+  };
+};
+
+VIEWS.maintenance = function(arg){
+  const a = arg.asset, m = arg.maint || {};
+  setTitle('Maintenance ' + a.id);
+  app().onclick = null;
+  const C = BOOT.config, today = C.today;
+  const cycle = {'Light Maintenance 1':'Light Maintenance 2','Light Maintenance 2':'Full Maintenance','Full Maintenance':'Light Maintenance 1'};
+  const type0 = C.maintTypes.indexOf(m.nextType) > -1 ? m.nextType : C.maintTypes[0];
+  app().innerHTML =
+    '<div class="card"><b>' + h(a.id) + '</b> <span class="muted">' + h(a.type + ' | ' + a.dept) + '</span>' +
+    (m.lastDate ? '<div class="small muted">Last: ' + h(m.lastDate + ' - ' + m.lastType) + '</div>' : '') + '</div>' +
+    '<div class="card">' +
+    '<div class="grid2"><div><label>Date <span class="req">*</span></label><input type="date" id="f_date" value="' + today + '" max="' + today + '"></div>' +
+    '<div><label>Type <span class="req">*</span></label><select id="f_type">' + C.maintTypes.map(t => '<option' + (t === type0 ? ' selected' : '') + '>' + h(t) + '</option>').join('') + '</select></div></div>' +
+    '<label>Washing and cleaning</label><div class="toggle" id="f_wash"><span class="on" data-w="1">Yes</span><span data-w="0">No</span></div>' +
+    '<label>Mechanics <span class="req">*</span></label><div id="f_mech"></div></div>' +
+    '<div class="card"><div class="row"><h3 style="margin:0">Components</h3><button type="button" class="btn alt sm" style="flex:0 0 auto" id="allChecked">All checked</button></div>' +
+    C.groups.map(g => '<div class="group" data-g="' + g.key + '"><h4>' + h(g.label) + ' <span class="req">*</span></h4><div class="chips">' +
+      C.actions.map(x => '<span class="chip" data-act="' + h(x) + '">' + h(x) + '</span>').join('') +
+      '</div><input style="margin-top:8px" placeholder="Note (optional)" data-note></div>').join('') + '</div>' +
+    '<div class="card"><label style="margin-top:0">Spare parts used</label><div id="f_parts"></div>' +
+    '<label>Notes</label><textarea id="f_pnote" style="min-height:60px"></textarea>' +
+    '<div class="grid2"><div><label>Next maintenance</label><input type="date" id="f_next"></div>' +
+    '<div><label>Next type</label><select id="f_ntype">' + C.maintTypes.map(t => '<option>' + h(t) + '</option>').join('') + '</select></div></div>' +
+    '<label>Photos (evidence)' + (C.requirePhotoMaintenance ? ' <span class="req">*</span>' : '') + '</label><div id="f_photos"></div>' +
+    pinField() + '</div><button class="btn" id="save">Save and send to Telegram</button>';
+
+  const setNext = () => { $('#f_next').value = addDaysISO($('#f_date').value || today, 30); $('#f_ntype').value = cycle[$('#f_type').value]; };
+  setNext();
+  $('#f_date').onchange = setNext; $('#f_type').onchange = setNext;
+  let wash = true;
+  $('#f_wash').onclick = e => { const w = e.target.dataset.w; if (w == null) return; wash = w === '1'; $('#f_wash').querySelectorAll('span').forEach(s => s.classList.toggle('on', s.dataset.w === w)); };
+  app().querySelectorAll('.group').forEach(g => g.addEventListener('click', e => { if (e.target.dataset.act) e.target.classList.toggle('on'); }));
+  $('#allChecked').onclick = () => app().querySelectorAll('.group [data-act="Checked"]').forEach(c => c.classList.add('on'));
+
+  const mech = mechPicker($('#f_mech')), parts = partsPicker($('#f_parts')), photos = photoPicker($('#f_photos'));
+  $('#save').onclick = async () => {
+    const groups = {}; let missing = '';
+    app().querySelectorAll('.group').forEach(g => {
+      const acts = Array.from(g.querySelectorAll('.chip.on')).map(c => c.dataset.act);
+      if (!acts.length && !missing) missing = g.querySelector('h4').textContent.replace('*', '').trim();
+      groups[g.dataset.g] = {actions: acts, note: g.querySelector('[data-note]').value};
+    });
+    if (missing) return toast('Fill in ' + missing);
+    const f = {
+      assetId: a.id, date: $('#f_date').value, type: $('#f_type').value, washing: wash,
+      mechanics: mech.get(), groups, parts: parts.get(), partsNote: $('#f_pnote').value,
+      nextDate: $('#f_next').value, nextType: $('#f_ntype').value, photos: photos.get(), pin: readPin()
+    };
+    if (!f.mechanics.length) return toast('Choose at least one mechanic');
+    if (C.requirePhotoMaintenance && !f.photos.length) return toast('Add at least one photo');
+    await submit('apiSaveMaintenance', f, mech);
+  };
+};
+
+async function submit(fn, f, mech){
+  const b = $('#save'); b.disabled = true; b.textContent = 'Saving, uploading photos...';
+  try {
+    const r = await api(fn, f);
+    mech.remember();
+    toast('Saved ' + r.id + (r.next ? '\nNext: ' + r.next : '') + (r.warnings && r.warnings.length ? '\n' + r.warnings.join('\n') : ''), 6000);
+    try { BOOT = await api('apiBootstrap'); } catch(e){}
+    back();
+  } catch(e) {
+    toast(e.message || String(e), 6000);
+    b.disabled = false; b.textContent = 'Save and send to Telegram';
+  }
+}
+
+VIEWS.parts = function(){
+  setTitle('Spare parts');
+  const cats = Array.from(new Set(BOOT.parts.map(p => p.cat).filter(Boolean)));
+  app().innerHTML = '<div class="card"><div class="row"><input type="search" id="q" placeholder="Search part">' +
+    '<button class="btn alt sm" style="flex:0 0 auto" id="scanP">Scan QR</button></div>' +
+    '<div class="row" style="margin-top:8px"><select id="cat"><option value="">All categories</option>' + cats.map(c => '<option>' + h(c) + '</option>').join('') + '</select>' +
+    '<select id="flt"><option value="">All stock</option><option value="low">At or below minimum</option></select></div></div>' +
+    '<div class="card list" id="res"></div>';
+  const draw = () => {
+    const t = $('#q').value.trim().toLowerCase(), c = $('#cat').value, low = $('#flt').value === 'low';
+    const rows = BOOT.parts.filter(p => (!c || p.cat === c) && (!low || p.avail <= p.min) && (!t || (p.id + ' ' + p.name).toLowerCase().indexOf(t) > -1));
+    $('#res').innerHTML = rows.slice(0, 200).map(p => '<div class="item" data-p="' + h(p.id) + '"><div class="row"><b style="flex:3">' + h(p.name) + '</b>' +
+      '<span style="flex:0 0 auto" class="pill ' + (p.avail <= p.min ? 'p-bad' : 'p-ok') + '">' + p.avail + ' ' + h(p.unit) + '</span></div>' +
+      '<div class="small muted">' + h(p.id + ' | ' + p.cat) + '</div></div>').join('') || '<div class="muted">No parts</div>';
+  };
+  ['q','cat','flt'].forEach(id => $('#' + id).addEventListener('input', draw));
+  app().onclick = e => { const p = e.target.closest('[data-p]'); if (p) go('part', p.dataset.p); };
+  $('#scanP').onclick = async () => { const t = await scanQr(); if (!t) return toast('No QR found'); go('part', qrParam(t, 'p')); };
+  draw();
+};
+
+VIEWS.part = async function(id){
+  setTitle(id); loading(); app().onclick = null;
+  let d;
+  try { d = await api('apiGetPart', id); } catch(e){ return showError(e); }
+  const p = d.part;
+  app().innerHTML =
+    '<div class="card"><h2>' + h(p.name) + '</h2><div class="muted">' + h(p.id + ' | ' + p.cat) + '</div>' +
+    '<div class="row" style="margin-top:12px"><div><div class="big">' + p.avail + '</div><div class="small muted">' + h(p.unit) + ' available</div></div>' +
+    '<div>' + (p.avail <= p.min ? '<span class="pill p-bad">At or below minimum (' + p.min + ')</span>' : '<span class="pill p-ok">OK (min ' + p.min + ')</span>') + '</div></div>' +
+    '<div class="kv" style="margin-top:12px"><div>Location</div><div>' + h(p.loc || '-') + '</div><div>Price</div><div>' + (p.price ? rp(p.price) : '-') + '</div>' +
+    (p.notes ? '<div>Notes</div><div>' + h(p.notes) + '</div>' : '') + '</div></div>' +
+    '<div class="card"><h3>Restock (admin)</h3><div class="grid2"><input type="number" id="r_qty" min="1" placeholder="Qty" inputmode="numeric">' +
+    '<input id="r_price" placeholder="Unit price (optional)" inputmode="numeric"></div>' +
+    '<input id="r_notes" style="margin-top:8px" placeholder="PR / PO number, received date">' +
+    '<button class="btn alt" style="margin-top:8px" id="r_save">Add stock</button></div>' +
+    '<div class="card"><h3>Recent usage</h3>' + (d.usage.map(u => '<div class="item list" style="padding:8px 0;border-bottom:1px solid var(--line)"><b>' + h(u.asset) + '</b> x' + u.qty +
+      (u.cond ? ' <span class="small muted">(' + h(u.cond) + ')</span>' : '') + '<div class="small muted">' + h(u.date + ' | ' + u.record) + '</div></div>').join('') || '<div class="muted">Not used yet</div>') + '</div>' +
+    '<div class="card"><h3>Stock in</h3>' + (d.restocks.map(r => '<div class="small" style="padding:6px 0;border-bottom:1px solid var(--line)">' + h(r.date) + ' | ' + h(r.type) + ' +' + h(r.qty) + (r.notes ? '<div class="muted">' + h(r.notes) + '</div>' : '') + '</div>').join('') || '<div class="muted">No records</div>') + '</div>';
+  $('#r_save').onclick = async () => {
+    const pin = await adminPin(); if (!pin) return;
+    const b = $('#r_save'); b.disabled = true;
+    try {
+      await api('apiRestock', pin, p.id, $('#r_qty').value, $('#r_notes').value, $('#r_price').value);
+      toast('Stock added'); BOOT = await api('apiBootstrap'); render();
+    } catch(e){ toast(e.message); ADMIN_PIN = ''; b.disabled = false; }
+  };
+};
+
+async function adminPin(){
+  if (ADMIN_PIN) return ADMIN_PIN;
+  const pin = prompt('Admin PIN');
+  if (!pin) return '';
+  try { await api('apiCheckAdmin', pin); ADMIN_PIN = pin; return pin; } catch(e){ toast(e.message); return ''; }
+}
+
+VIEWS.calendar = async function(){
+  setTitle('Maintenance calendar'); loading();
+  let d;
+  try { d = await api('apiCalendar'); } catch(e){ return showError(e); }
+  const order = ['Overdue','Not yet serviced','Due soon','Scheduled','Done this month'];
+  const count = s => d.items.filter(i => i.status === s).length;
+  let filter = '';
+  const draw = () => {
+    const items = d.items.filter(i => !filter || i.status === filter);
+    $('#cal').innerHTML = order.map(s => {
+      const g = items.filter(i => i.status === s);
+      if (!g.length) return '';
+      return '<div class="card"><h3>' + statusPill(s) + ' <span class="muted small">' + g.length + '</span></h3><div class="list">' +
+        g.map(i => '<div class="item" data-v="' + h(i.id) + '"><div class="row"><b>' + h(i.id) + '</b><span class="small muted" style="text-align:right">' + h(i.dept) + '</span></div>' +
+          '<div class="small muted">Last: ' + h(i.lastDate ? i.lastDate + ' ' + i.lastType : '-') + '</div>' +
+          '<div class="small">Next: ' + h(i.nextDate ? i.nextDate + ' ' + i.nextType : i.nextType) + '</div></div>').join('') + '</div></div>';
+    }).join('');
+  };
+  app().innerHTML = '<div class="card"><h3>' + h(d.month) + '</h3><div class="grid2">' +
+    order.map(s => '<div class="stat" data-f="' + h(s) + '"><b>' + count(s) + '</b><span class="small">' + h(s) + '</span></div>').join('') +
+    '<div class="stat" data-f=""><b>' + d.items.length + '</b><span class="small">All vehicles</span></div></div></div><div id="cal"></div>';
+  app().onclick = e => {
+    const f = e.target.closest('[data-f]'); if (f) { filter = f.dataset.f; draw(); return; }
+    const v = e.target.closest('[data-v]'); if (v) go('asset', v.dataset.v);
+  };
+  draw();
+};
+
+VIEWS.jobs = async function(){
+  setTitle('Job completion'); app().onclick = null;
+  const pin = await adminPin();
+  if (!pin) { app().innerHTML = '<div class="card">Admin PIN needed.</div>'; return; }
+  loading();
+  let d;
+  try { d = await api('apiPendingJobs', pin); } catch(e){ return showError(e); }
+  app().innerHTML = '<div class="card"><h3>Waiting for job completion <span class="muted small">(' + d.pending.length + ')</span></h3><div class="list">' +
+    (d.pending.map((j, i) => '<div class="item" data-j="' + i + '"><div class="row"><b>' + h(j.woNumber) + '</b><span class="small muted" style="text-align:right">' + h(j.date) + '</span></div>' +
+      '<div class="small">' + h(j.vehicle + ' | ' + j.dept) + '</div><div class="small muted">' + h(j.job.split('\n')[0]) + '</div></div>').join('') || '<div class="muted">Nothing pending</div>') +
+    '</div></div><div class="card"><h3>Recently completed</h3>' +
+    (d.recent.map(r => '<div class="small" style="padding:6px 0;border-bottom:1px solid var(--line)"><b>' + h(r.woNumber || r.woId) + '</b> ' + h(r.vehicle) + ' | ' + h(r.status) +
+      (r.pdf ? ' | <a href="' + h(r.pdf) + '" target="_blank">PDF</a>' : '') + '</div>').join('') || '<div class="muted">None</div>') + '</div>';
+  app().onclick = e => { const j = e.target.closest('[data-j]'); if (j) go('jobForm', d.pending[+j.dataset.j]); };
+};
+
+VIEWS.jobForm = function(j){
+  setTitle('Job completion ' + j.woNumber); app().onclick = null;
+  const parts = j.parts.map(p => { const pp = partById(p.text); return '- ' + (pp ? pp.name : p.text) + ' x' + p.qty + (p.cond ? ' (' + p.cond + ')' : ''); }).join('\n');
+  app().innerHTML = '<div class="card"><div class="kv"><div>WO ID</div><div>' + h(j.woId) + '</div><div>WO Number</div><div>' + h(j.woNumber) + '</div>' +
+    '<div>Vehicle</div><div>' + h(j.vehicle + ' ' + j.type) + '</div><div>Requested by</div><div>' + h(j.requestedBy + ' | ' + j.dept) + '</div>' +
+    '<div>Date</div><div>' + h(j.date) + '</div><div>Mechanics</div><div>' + h(j.mechanics) + '</div></div>' +
+    '<div class="pre" style="margin-top:8px">' + h(j.job) + '</div>' + (parts ? '<div class="pre small" style="margin-top:6px"><b>Parts</b>\n' + h(parts) + '</div>' : '') + '</div>' +
+    '<div class="card"><label style="margin-top:0">Work performed <span class="req">*</span></label><textarea id="j_work">(SERVICE) Mechanic Service by Transport Dept. to ' + h(j.job.split('\n')[0]) + '</textarea>' +
+    '<label>Findings <span class="req">*</span></label><textarea id="j_find">' + h(j.notes) + '</textarea>' +
+    '<label>Repair / replacement performed <span class="req">*</span></label><textarea id="j_rep"></textarea>' +
+    '<label>Status</label><select id="j_status">' + BOOT.config.jcStatuses.map(s => '<option>' + h(s) + '</option>').join('') + '</select>' +
+    '<label>Notes / remarks</label><input id="j_notes"></div>' +
+    '<button class="btn" id="save">Save and create PDF</button><div id="out" style="margin-top:12px"></div>';
+  $('#save').onclick = async () => {
+    const f = {woId: j.woId, workPerformed: $('#j_work').value, findings: $('#j_find').value, repair: $('#j_rep').value, status: $('#j_status').value, notes: $('#j_notes').value};
+    if (!f.workPerformed.trim() || !f.findings.trim() || !f.repair.trim()) return toast('Fill in all required fields');
+    const b = $('#save'); b.disabled = true; b.textContent = 'Saving and creating PDF...';
+    try {
+      const r = await api('apiSaveJobCompletion', ADMIN_PIN, f);
+      $('#out').innerHTML = '<div class="card"><b>' + h(r.jcId) + ' saved</b>' + (r.pdfUrl ? '<a class="btn" style="margin-top:10px" href="' + h(r.pdfUrl) + '" target="_blank">Open PDF</a>' : '') +
+        (r.warnings.length ? '<div class="err" style="margin-top:8px">' + h(r.warnings.join('\n')) + '</div>' : '') + '</div>';
+      b.textContent = 'Saved';
+    } catch(e){ toast(e.message, 6000); b.disabled = false; b.textContent = 'Save and create PDF'; }
+  };
+};
+
+// ---------- start
+(async function start(){
+  try { BOOT = await api('apiBootstrap'); } catch(e){ return showError(e); }
+  const first = INIT.page === 'asset' ? {view:'asset', arg: INIT.v}
+              : INIT.page === 'part' ? {view:'part', arg: INIT.p}
+              : VIEWS[INIT.page] ? {view: INIT.page} : {view:'home'};
+  if (first.view !== 'home') stack.push({view:'home'});
+  current = first; history.replaceState(null, '', urlFor(first) || location.href); render();
+})();
+</script>
+</body>
+</html>
