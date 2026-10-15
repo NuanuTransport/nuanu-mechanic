@@ -42,6 +42,7 @@ const TYPE = new URLSearchParams(location.search).get('type') === 'part' ? 'part
 // QR codes point to index.html in the same GitHub Pages folder, e.g. https://you.github.io/nuanu-mechanic/?v=LV23-001
 const BASE = location.origin + location.pathname.replace(/[^/]*$/, '');
 let ITEMS = [];
+(function(){ const q = new URLSearchParams(location.search).get('q'); if (q) document.getElementById('q').value = q; })();
 document.getElementById('h').textContent = TYPE === 'part' ? 'Spare part QR labels' : 'Vehicle and area QR labels';
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function draw(){
