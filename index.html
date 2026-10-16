@@ -129,7 +129,7 @@ async function api(action, ...args){
   let res;
   try {
     res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify({action, args}) });
-  } catch(e) { throw new Error('No connection to the server. Check the Wi-Fi and try again.'); }
+  } catch(e) { throw new Error('Cannot reach the server. Check the Wi-Fi. If this phone uses a content blocker or ad blocker, turn it off for this site (iPhone Safari: tap aA in the address bar > Turn off Content Blockers), then reload.'); }
   let j;
   try { j = await res.json(); } catch(e) { throw new Error('Server did not answer correctly (is the web app deployed for "Anyone"?)'); }
   if (!j.ok) throw new Error(j.error || 'Server error');
@@ -145,6 +145,8 @@ function loading(){ app().innerHTML = '<div class="loading">Loading...</div>'; }
 function showError(e){ app().innerHTML = '<div class="err">' + h(e && e.message || e) + '</div>'; }
 function rp(n){ return 'Rp' + Math.round(n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 function partById(id){ return BOOT.parts.find(p => p.id === id); }
+// name for a part written in a record: current list first, then the old list (history before the new catalogue)
+function partName(text){ const p = partById(text); if (p) return p.name; const o = BOOT.oldParts && BOOT.oldParts[text]; return o ? o + ' (old list)' : text; }
 function addDaysISO(iso, n){ const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10); }
 function statusPill(s){
   const c = {'Done this month':'p-ok','Scheduled':'p-info','Due soon':'p-warn','Overdue':'p-bad','Not yet serviced':'p-bad'}[s] || 'p-mute';
@@ -156,7 +158,8 @@ let pushed = 0;
 function urlFor(c){
   if (c.view === 'asset') return '?v=' + encodeURIComponent(c.arg);
   if (c.view === 'part') return '?p=' + encodeURIComponent(c.arg);
-  if (['calendar','parts','jobs','restock','addVehicle'].indexOf(c.view) > -1) return '?page=' + c.view;
+  if (['calendar','parts','jobs','addVehicle','addPart'].indexOf(c.view) > -1) return '?page=' + c.view;
+  if (c.view === 'restock') return '?page=restock' + (c.arg === 'count' ? '&mode=count' : '');
   if (c.view === 'home') return location.pathname;
   return null;
 }
@@ -376,8 +379,10 @@ VIEWS.home = function(){
       '<button class="btn" onclick="go(\'calendar\')">Maintenance calendar</button>' +
       '<button class="btn alt" onclick="go(\'parts\')">Spare parts and stock</button>' +
       '<button class="btn alt" onclick="go(\'jobs\')">Job completion (admin)</button>' +
-      '<div class="grid2"><button class="btn alt" onclick="go(\'addVehicle\')">Add vehicle / area</button>' +
-      '<button class="btn alt" onclick="go(\'restock\')">Restock / stock count</button></div>' +
+      '<div class="grid2"><button class="btn alt" onclick="go(\'restock\',\'in\')">Receive stock (purchasing)</button>' +
+      '<button class="btn alt" onclick="go(\'addPart\')">Add new spare part</button></div>' +
+      '<div class="grid2"><button class="btn alt" onclick="go(\'restock\',\'count\')">Stock count</button>' +
+      '<button class="btn alt" onclick="go(\'addVehicle\')">Add vehicle / area</button></div>' +
       '<div class="grid2"><a class="btn ghost" href="print.html?type=vehicle">Print vehicle QR</a>' +
       '<a class="btn ghost" href="print.html?type=part">Print part QR</a></div>' +
     '</div>';
@@ -445,7 +450,7 @@ VIEWS.asset = async function(id){
 };
 
 function histItem(x, i){
-  const parts = x.parts.map(p => { const pp = partById(p.text); return '- ' + (pp ? pp.name : p.text) + ' x' + p.qty + (p.cond ? ' (' + p.cond + ')' : ''); }).join('\n');
+  const parts = x.parts.map(p => { return '- ' + partName(p.text) + ' x' + p.qty + (p.cond ? ' (' + p.cond + ')' : ''); }).join('\n');
   const photos = x.photos.map(id => '<a href="https://drive.google.com/file/d/' + h(id) + '/view" target="_blank"><img loading="lazy" src="https://drive.google.com/thumbnail?id=' + h(id) + '&sz=w200" onerror="this.style.display=\'none\'"></a>').join('');
   return '<div class="hist tap ' + x.kind + '" data-h="' + i + '"><div class="row" style="align-items:baseline"><b>' + h(x.title) + '</b>' +
     '<span class="small muted" style="text-align:right">' + h(x.date) + '</span></div>' +
@@ -659,7 +664,7 @@ VIEWS.jobs = async function(){
 
 VIEWS.jobForm = function(j){
   setTitle('Job completion ' + j.woNumber); app().onclick = null;
-  const parts = j.parts.map(p => { const pp = partById(p.text); return '- ' + (pp ? pp.name : p.text) + ' x' + p.qty + (p.cond ? ' (' + p.cond + ')' : ''); }).join('\n');
+  const parts = j.parts.map(p => { return '- ' + partName(p.text) + ' x' + p.qty + (p.cond ? ' (' + p.cond + ')' : ''); }).join('\n');
   app().innerHTML = '<div class="card"><div class="kv"><div>WO ID</div><div>' + h(j.woId) + '</div><div>WO Number</div><div>' + h(j.woNumber) + '</div>' +
     '<div>Vehicle</div><div>' + h(j.vehicle + ' ' + j.type) + '</div><div>Requested by</div><div>' + h(j.requestedBy + ' | ' + j.dept) + '</div>' +
     '<div>Date</div><div>' + h(j.date) + '</div><div>Mechanics</div><div>' + h(j.mechanics) + '</div></div>' +
@@ -705,7 +710,7 @@ VIEWS.record = function(arg){
   }
   if (x.parts.length) {
     html += '<div class="card"><h3>Spare parts used</h3><table class="tbl"><tr><th>Part</th><th>Qty</th><th>Condition</th></tr>' +
-      x.parts.map(p => { const pp = partById(p.text); return '<tr><td>' + h(pp ? pp.name : p.text) + '<div class="small muted">' + h(pp ? pp.id : '') + '</div></td><td>' + h(p.qty) + '</td><td>' + h(p.cond || '-') + '</td></tr>'; }).join('') +
+      x.parts.map(p => { const pp = partById(p.text); return '<tr><td>' + h(partName(p.text)) + '<div class="small muted">' + h(pp ? pp.id : p.text) + '</div></td><td>' + h(p.qty) + '</td><td>' + h(p.cond || '-') + '</td></tr>'; }).join('') +
       '</table></div>';
   }
   if (x.notes) html += '<div class="card"><h3>Notes</h3><div class="pre">' + h(x.notes) + '</div></div>';
@@ -763,11 +768,11 @@ VIEWS.addVehicle = async function(){
 };
 
 // ---------- restock / stock count (admin)
-VIEWS.restock = async function(){
-  setTitle('Restock / stock count'); app().onclick = null;
+VIEWS.restock = async function(arg){
+  setTitle(arg === 'count' ? 'Stock count' : 'Receive stock'); app().onclick = null;
   const pin = await adminPin();
   if (!pin) { app().innerHTML = '<div class="card">Admin PIN needed.</div>'; return; }
-  let mode = 'in';
+  let mode = arg === 'count' ? 'count' : 'in';
   const lines = [];
   app().innerHTML =
     '<div class="card"><div class="toggle" id="r_mode"><span class="on" data-m="in">Received stock</span><span data-m="count">Stock count</span></div>' +
@@ -780,13 +785,14 @@ VIEWS.restock = async function(){
     '<div class="results hide" id="r_res"></div><div id="r_lines"></div></div>' +
     '<button class="btn" id="save">Save</button><div id="out" style="margin-top:12px"></div>';
   const help = {
-    in: 'Add the quantity that arrived. It is added to the stock.',
+    in: 'For parts from purchasing: add the quantity that arrived. It is added to the stock. A part that is not in the list yet? Use Add new spare part.',
     count: 'Type the quantity you count on the rack. The app records the difference so the stock becomes exactly what you counted. Use this when you move parts to the new racks.'
   };
   const drawMode = () => {
     $('#r_mode').querySelectorAll('span').forEach(s => s.classList.toggle('on', s.dataset.m === mode));
     $('#r_help').textContent = help[mode];
     $('#r_ref_l').textContent = mode === 'in' ? 'PO / PR number, supplier' : 'Note (e.g. Stock count Rack A)';
+    setTitle(mode === 'count' ? 'Stock count' : 'Receive stock');
     drawLines();
   };
   const drawLines = () => {
@@ -815,10 +821,14 @@ VIEWS.restock = async function(){
     if (t.length < 2) { res.classList.add('hide'); return; }
     const words = t.split(/\s+/);
     const hits = BOOT.parts.filter(p => { const s = (p.id + ' ' + p.name + ' ' + p.cat).toLowerCase(); return words.every(w => s.indexOf(w) > -1); }).slice(0, 15);
-    res.innerHTML = hits.length ? hits.map(p => '<div data-add="' + h(p.id) + '"><b>' + h(p.name) + '</b><br><span class="small muted">' + h(p.id) + ' | stock ' + p.avail + '</span></div>').join('') : '<div class="muted">No part found</div>';
+    res.innerHTML = (hits.length ? hits.map(p => '<div data-add="' + h(p.id) + '"><b>' + h(p.name) + '</b><br><span class="small muted">' + h(p.id) + ' | stock ' + p.avail + '</span></div>').join('') : '<div class="muted">No part found</div>') +
+      '<div data-new="1" style="color:var(--brand);font-weight:600">+ Add "' + h($('#r_q').value.trim()) + '" as a new spare part</div>';
     res.classList.remove('hide');
   };
-  $('#r_res').onclick = e => { const d = e.target.closest('[data-add]'); if (d) add(d.dataset.add); };
+  $('#r_res').onclick = e => {
+    if (e.target.closest('[data-new]')) return go('addPart', {name: $('#r_q').value.trim(), loc: $('#r_rack').value.trim(), ref: $('#r_ref').value.trim()});
+    const d = e.target.closest('[data-add]'); if (d) add(d.dataset.add);
+  };
   $('#r_scan').onclick = async () => { const t = await scanQr(); if (!t) return toast('No QR found'); add(qrParam(t, 'p')); };
   $('#r_lines').oninput = e => { const d = e.target.dataset; if (d.k) lines[+d.i][d.k] = e.target.value; };
   $('#r_lines').onclick = e => { const i = e.target.dataset.rm; if (i != null) { lines.splice(+i, 1); drawLines(); } };
@@ -842,11 +852,64 @@ VIEWS.restock = async function(){
   drawMode();
 };
 
+// ---------- add new spare part (admin)
+const PART_CATS = ['Tire', 'Battery', 'Electrical', 'Lamp', 'Fuse & Relay', 'Brake', 'Steering', 'Suspension', 'Body', 'Bearing', 'Charger', 'Accessories', 'Oil & Fluid', 'Bus 23 Seater', 'Buggy', 'Molis', 'Tools', 'Other'];
+VIEWS.addPart = async function(arg){
+  arg = arg || {};
+  setTitle('Add new spare part'); app().onclick = null;
+  const pin = await adminPin();
+  if (!pin) { app().innerHTML = '<div class="card">Admin PIN needed.</div>'; return; }
+  const last = store.get('lastPart') || {};
+  const cats = Array.from(new Set(PART_CATS.concat(BOOT.parts.map(p => p.cat).filter(Boolean)))).sort();
+  const units = Array.from(new Set(['pcs', 'set', 'pair', 'meter', 'liter', 'roll', 'box', 'kg'].concat(BOOT.parts.map(p => p.unit).filter(Boolean))));
+  app().innerHTML =
+    '<div class="card"><label style="margin-top:0">Part name <span class="req">*</span></label><input id="n_name" placeholder="e.g. Ban Wanda 205/65 - 10" value="' + h(arg.name || '') + '">' +
+    '<div class="small muted" id="n_dup" style="margin-top:4px"></div>' +
+    '<label>Category <span class="req">*</span></label><input id="n_cat" list="n_cats" value="' + h(arg.cat || last.cat || '') + '" placeholder="Choose or type">' +
+    '<datalist id="n_cats">' + cats.map(c => '<option value="' + h(c) + '">').join('') + '</datalist>' +
+    '<div class="grid2"><div><label>Unit</label><input id="n_unit" list="n_units" value="' + h(last.unit || 'pcs') + '"><datalist id="n_units">' + units.map(u => '<option value="' + h(u) + '">').join('') + '</datalist></div>' +
+    '<div><label>Min stock</label><input id="n_min" type="number" min="0" inputmode="numeric" value="1"></div></div>' +
+    '<div class="grid2"><div><label>Unit price</label><input id="n_price" inputmode="numeric" placeholder="e.g. 225000"></div>' +
+    '<div><label>Rack / location</label><input id="n_loc" value="' + h(arg.loc || last.loc || '') + '" placeholder="e.g. Rack A-1"></div></div>' +
+    '<label>Notes</label><input id="n_notes" placeholder="e.g. catalogue code, fits LV23 bus">' +
+    '</div><div class="card"><h3>Stock now</h3>' +
+    '<div class="grid2"><div><label style="margin-top:0">Qty on hand</label><input id="n_qty" type="number" min="0" inputmode="numeric" value="0"></div>' +
+    '<div><label style="margin-top:0">PO / PR / note</label><input id="n_ref" value="' + h(arg.ref || '') + '" placeholder="optional"></div></div>' +
+    '<div class="small muted" style="margin-top:6px">The quantity you count on the rack now, or what arrived from purchasing.</div></div>' +
+    '<button class="btn" id="save">Save new part</button><div id="out" style="margin-top:12px"></div>';
+  const dupCheck = () => {
+    const t = $('#n_name').value.trim().toLowerCase().replace(/\s+/g, ' ');
+    const same = t && BOOT.parts.find(p => p.name.toLowerCase().replace(/\s+/g, ' ') === t);
+    $('#n_dup').innerHTML = same ? '<span style="color:var(--bad)">Already exists: ' + h(same.id + ' ' + same.name) + '. Use Receive stock instead.</span>' : '';
+  };
+  $('#n_name').oninput = dupCheck; dupCheck();
+  $('#save').onclick = async () => {
+    const f = {name: $('#n_name').value.trim(), cat: $('#n_cat').value.trim(), unit: $('#n_unit').value.trim(), min: $('#n_min').value,
+      price: $('#n_price').value.trim(), loc: $('#n_loc').value.trim(), notes: $('#n_notes').value.trim(), qty: $('#n_qty').value, ref: $('#n_ref').value.trim()};
+    if (!f.name) return toast('Fill in the part name');
+    if (!f.cat) return toast('Fill in the category');
+    const b = $('#save'); b.disabled = true; b.textContent = 'Saving...';
+    try {
+      const r = await api('apiAddPart', ADMIN_PIN, f);
+      store.set('lastPart', {cat: f.cat, unit: f.unit, loc: f.loc});
+      BOOT = await api('apiBootstrap');
+      b.classList.add('hide');
+      $('#out').innerHTML = '<div class="card"><b>' + h(r.id) + ' ' + h(r.name) + '</b> saved' + (r.qty ? ' with ' + r.qty + ' ' + h(f.unit || 'pcs') : '') + '.' +
+        '<div class="stack" style="margin-top:10px"><button class="btn" id="nextPart">Add next part</button>' +
+        '<a class="btn alt" href="print.html?type=part&q=' + encodeURIComponent(r.id) + '">Print its QR label</a>' +
+        '<button class="btn ghost" id="openPart">Open ' + h(r.id) + '</button></div></div>';
+      $('#nextPart').onclick = () => { current.arg = {}; render(); };
+      $('#openPart').onclick = () => go('part', r.id);
+    } catch(e){ toast(e.message, 6000); b.disabled = false; b.textContent = 'Save new part'; }
+  };
+};
+
 // ---------- start
 (async function start(){
   try { BOOT = await api('apiBootstrap'); } catch(e){ return showError(e); }
   const first = INIT.page === 'asset' ? {view:'asset', arg: INIT.v}
               : INIT.page === 'part' ? {view:'part', arg: INIT.p}
+              : INIT.page === 'restock' ? {view:'restock', arg: QS.get('mode') === 'count' ? 'count' : 'in'}
               : VIEWS[INIT.page] ? {view: INIT.page} : {view:'home'};
   if (first.view !== 'home') stack.push({view:'home'});
   current = first; history.replaceState(null, '', urlFor(first) || location.href); render();
