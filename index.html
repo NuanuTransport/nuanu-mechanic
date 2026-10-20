@@ -358,6 +358,51 @@ function partsPicker(el){
   return { get: () => lines.map(l => Object.assign({}, l)) };
 }
 
+// ---------- service fee picker (only for vehicles of outside departments)
+function feePicker(el){
+  const list = BOOT.fees || [];
+  const lines = [];
+  const cats = Array.from(new Set(list.map(f => f.cat)));
+  el.innerHTML = '<select data-sel><option value="">+ Add a service...</option>' +
+    cats.map(c => '<optgroup label="' + h(c) + '">' + list.filter(f => f.cat === c).map(f =>
+      '<option value="' + h(f.id) + '">' + h(f.name) + ' - ' + (f.price ? rp(f.price) : 'type price') + '</option>').join('') + '</optgroup>').join('') +
+    '</select><div data-lines></div><div data-total class="small" style="margin-top:8px;text-align:right"></div>';
+  const sel = el.querySelector('[data-sel]'), box = el.querySelector('[data-lines]'), tot = el.querySelector('[data-total]');
+  const byId = id => list.find(f => f.id === id);
+  const lineTotal = l => { const f = byId(l.id); return (f.price || Number(String(l.price).replace(/\D/g, '')) || 0) * (Number(l.qty) || 0); };
+  const draw = () => {
+    box.innerHTML = lines.map((l, i) => {
+      const f = byId(l.id);
+      return '<div class="pline"><div class="top"><div><b>' + h(f.name) + '</b><div class="small muted">' + h(f.desc || f.cat) + '</div></div>' +
+        '<button type="button" class="x" data-rm="' + i + '">Remove</button></div>' +
+        '<div class="grid2" style="margin-top:8px"><div><div class="lbl">Qty</div><input type="number" min="1" step="1" inputmode="numeric" value="' + l.qty + '" data-qty="' + i + '"></div>' +
+        '<div><div class="lbl">Price</div>' + (f.price ? '<input value="' + rp(f.price) + '" disabled>' :
+          '<input inputmode="numeric" placeholder="Type price" value="' + h(l.price || '') + '" data-price="' + i + '">') + '</div></div></div>';
+    }).join('');
+    const total = lines.reduce((s, l) => s + lineTotal(l), 0);
+    tot.innerHTML = lines.length ? 'Total service fee: <b>' + rp(total) + '</b>' : '<span class="muted">No service fee added</span>';
+  };
+  sel.onchange = () => {
+    const id = sel.value; sel.value = ''; if (!id) return;
+    const ex = lines.find(l => l.id === id);
+    if (ex) ex.qty++; else lines.push({id, qty: 1, price: ''});
+    draw();
+  };
+  box.addEventListener('click', e => { const i = e.target.dataset.rm; if (i != null) { lines.splice(+i, 1); draw(); } });
+  box.addEventListener('input', e => {
+    const d = e.target.dataset;
+    if (d.qty != null) lines[+d.qty].qty = Math.max(1, parseInt(e.target.value, 10) || 1);
+    if (d.price != null) lines[+d.price].price = e.target.value;
+    const total = lines.reduce((s, l) => s + lineTotal(l), 0);
+    tot.innerHTML = lines.length ? 'Total service fee: <b>' + rp(total) + '</b>' : '';
+  });
+  draw();
+  return {
+    get: () => lines.map(l => ({id: l.id, qty: l.qty, price: String(l.price || '').replace(/\D/g, '')})),
+    missing: () => { const l = lines.find(l => !byId(l.id).price && !(Number(String(l.price).replace(/\D/g, '')) > 0)); return l ? byId(l.id).name : ''; }
+  };
+}
+
 function pinField(){
   return BOOT.config.needSubmitPin ? '<label>Workshop PIN <span class="req">*</span></label><input type="password" inputmode="numeric" id="f_pin" value="' + h(store.get('pin') || '') + '">' : '';
 }
@@ -476,20 +521,23 @@ VIEWS.activity = function(arg){
     '<label>Job description <span class="req">*</span></label><textarea id="f_job" placeholder="1. ...&#10;2. ..."></textarea>' +
     '<label>Mechanics <span class="req">*</span></label><div id="f_mech"></div>' +
     '<label>Spare parts used</label><div id="f_parts"></div>' +
+    (a.fee ? '<label>Service fee <span class="small muted">(charged to ' + h(a.dept) + ')</span></label><div id="f_fees"></div>' : '') +
     '<label>Notes / findings</label><textarea id="f_notes" style="min-height:60px"></textarea>' +
     '<label>Photos (evidence)' + (BOOT.config.requirePhotoActivity ? ' <span class="req">*</span>' : '') + '</label><div id="f_photos"></div>' +
     pinField() +
     '</div><button class="btn" id="save">Save and send to Telegram</button>';
   const mech = mechPicker($('#f_mech')), parts = partsPicker($('#f_parts')), photos = photoPicker($('#f_photos'));
+  const fees = a.fee ? feePicker($('#f_fees')) : null;
   $('#save').onclick = async () => {
     const f = {
       assetId: a.id, date: $('#f_date').value, requestedBy: $('#f_req').value, woNumber: $('#f_wo').value,
-      job: $('#f_job').value, mechanics: mech.get(), parts: parts.get(), notes: $('#f_notes').value,
+      job: $('#f_job').value, mechanics: mech.get(), parts: parts.get(), fees: fees ? fees.get() : [], notes: $('#f_notes').value,
       photos: photos.get(), pin: readPin()
     };
     if (!f.job.trim()) return toast('Fill in the job description');
     if (!f.mechanics.length) return toast('Choose at least one mechanic');
     if (BOOT.config.requirePhotoActivity && !f.photos.length) return toast('Add at least one photo');
+    if (fees && fees.missing()) return toast('Type the price for ' + fees.missing());
     await submit('apiSaveActivity', f, mech);
   };
 };
@@ -514,6 +562,7 @@ VIEWS.maintenance = function(arg){
       C.actions.map(x => '<span class="chip" data-act="' + h(x) + '">' + h(x) + '</span>').join('') +
       '</div><input style="margin-top:8px" placeholder="Note (optional)" data-note></div>').join('') + '</div>' +
     '<div class="card"><label style="margin-top:0">Spare parts used</label><div id="f_parts"></div>' +
+    (a.fee ? '<label>Service fee <span class="small muted">(charged to ' + h(a.dept) + ')</span></label><div id="f_fees"></div>' : '') +
     '<label>Notes</label><textarea id="f_pnote" style="min-height:60px"></textarea>' +
     '<div class="grid2 dt"><div><label>Next maintenance</label><input type="date" id="f_next"></div>' +
     '<div><label>Next type</label><select id="f_ntype">' + C.maintTypes.map(t => '<option>' + h(t) + '</option>').join('') + '</select></div></div>' +
@@ -529,6 +578,7 @@ VIEWS.maintenance = function(arg){
   $('#allChecked').onclick = () => app().querySelectorAll('.group [data-act="Checked"]').forEach(c => c.classList.add('on'));
 
   const mech = mechPicker($('#f_mech')), parts = partsPicker($('#f_parts')), photos = photoPicker($('#f_photos'));
+  const fees = a.fee ? feePicker($('#f_fees')) : null;
   $('#save').onclick = async () => {
     const groups = {}; let missing = '';
     app().querySelectorAll('.group').forEach(g => {
@@ -539,11 +589,12 @@ VIEWS.maintenance = function(arg){
     if (missing) return toast('Fill in ' + missing);
     const f = {
       assetId: a.id, date: $('#f_date').value, type: $('#f_type').value, washing: wash,
-      mechanics: mech.get(), groups, parts: parts.get(), partsNote: $('#f_pnote').value,
+      mechanics: mech.get(), groups, parts: parts.get(), fees: fees ? fees.get() : [], partsNote: $('#f_pnote').value,
       nextDate: $('#f_next').value, nextType: $('#f_ntype').value, photos: photos.get(), pin: readPin()
     };
     if (!f.mechanics.length) return toast('Choose at least one mechanic');
     if (C.requirePhotoMaintenance && !f.photos.length) return toast('Add at least one photo');
+    if (fees && fees.missing()) return toast('Type the price for ' + fees.missing());
     await submit('apiSaveMaintenance', f, mech);
   };
 };
@@ -668,7 +719,8 @@ VIEWS.jobForm = function(j){
   app().innerHTML = '<div class="card"><div class="kv"><div>WO ID</div><div>' + h(j.woId) + '</div><div>WO Number</div><div>' + h(j.woNumber) + '</div>' +
     '<div>Vehicle</div><div>' + h(j.vehicle + ' ' + j.type) + '</div><div>Requested by</div><div>' + h(j.requestedBy + ' | ' + j.dept) + '</div>' +
     '<div>Date</div><div>' + h(j.date) + '</div><div>Mechanics</div><div>' + h(j.mechanics) + '</div></div>' +
-    '<div class="pre" style="margin-top:8px">' + h(j.job) + '</div>' + (parts ? '<div class="pre small" style="margin-top:6px"><b>Parts</b>\n' + h(parts) + '</div>' : '') + '</div>' +
+    '<div class="pre" style="margin-top:8px">' + h(j.job) + '</div>' + (parts ? '<div class="pre small" style="margin-top:6px"><b>Parts</b>\n' + h(parts) + '</div>' : '') +
+    (j.fees && j.fees.length ? '<div class="pre small" style="margin-top:6px"><b>Service fee (goes to Labor / Service on the PDF)</b>\n' + h(j.fees.map(l => '- ' + l.name + ' x' + l.qty + ' ' + rp(l.total)).join('\n')) + '\n<b>Total ' + h(rp(j.feeTotal)) + '</b></div>' : '') + '</div>' +
     '<div class="card"><label style="margin-top:0">Work performed <span class="req">*</span></label><textarea id="j_work">(SERVICE) Mechanic Service by Transport Dept. to ' + h(j.job.split('\n')[0]) + '</textarea>' +
     '<label>Findings <span class="req">*</span></label><textarea id="j_find">' + h(j.notes) + '</textarea>' +
     '<label>Repair / replacement performed <span class="req">*</span></label><textarea id="j_rep"></textarea>' +
@@ -712,6 +764,11 @@ VIEWS.record = function(arg){
     html += '<div class="card"><h3>Spare parts used</h3><table class="tbl"><tr><th>Part</th><th>Qty</th><th>Condition</th></tr>' +
       x.parts.map(p => { const pp = partById(p.text); return '<tr><td>' + h(partName(p.text)) + '<div class="small muted">' + h(pp ? pp.id : p.text) + '</div></td><td>' + h(p.qty) + '</td><td>' + h(p.cond || '-') + '</td></tr>'; }).join('') +
       '</table></div>';
+  }
+  if (x.fees && x.fees.length) {
+    html += '<div class="card"><h3>Service fee</h3><table class="tbl"><tr><th>Service</th><th>Qty</th><th>Total</th></tr>' +
+      x.fees.map(l => '<tr><td>' + h(l.name) + '</td><td>' + l.qty + '</td><td>' + rp(l.total) + '</td></tr>').join('') +
+      '<tr><td><b>Total</b></td><td></td><td><b>' + rp(x.feeTotal) + '</b></td></tr></table></div>';
   }
   if (x.notes) html += '<div class="card"><h3>Notes</h3><div class="pre">' + h(x.notes) + '</div></div>';
   if (x.photos.length) {
