@@ -746,7 +746,7 @@ VIEWS.jobs = async function(){
       '<div class="chips">' + list.map(d => '<span class="chip' + (sel.has(d.dept) ? ' on' : '') + '" data-d="' + h(d.dept) + '">' + h(d.dept) + ' (' + d.n + ')</span>').join('') + '</div>' +
       '<div class="grid2" style="margin-top:10px"><button class="btn ghost sm" style="width:100%" data-all="charge">Outside departments</button><button class="btn ghost sm" style="width:100%" data-all="none">Clear</button></div>' +
       '<div class="grid2" style="margin-top:10px"><button class="btn" id="jr_print"' + (jobs.length ? '' : ' disabled') + '>Print / Save PDF</button><button class="btn alt" id="jr_csv"' + (jobs.length ? '' : ' disabled') + '>Download Excel</button></div>' +
-      '<div class="small muted" style="margin-top:8px">Spare parts are charged at price + ' + Math.round(data.markup * 100) + '%. In the print window choose "Save as PDF".</div></div>' +
+      '<div class="small muted" style="margin-top:8px">In the print window choose "Save as PDF". (Spare part prices include the ' + Math.round(data.markup * 100) + '% markup; this note is not printed.)</div></div>' +
       (jobs.length ? '<div class="jc" style="page-break-before:auto;break-before:auto"><div class="jh"><div><b>JOB COMPLETION REPORT</b><div class="co">Nuanu Mechanic - Transport Department</div></div><div class="co" style="text-align:right">' + h(data.from) + ' - ' + h(data.to) + '<br>' + jobs.length + ' jobs</div></div>' +
         '<table class="tbl sum"><tr><th>Department</th><th class="num">Jobs</th><th class="num">Parts</th><th class="num">Service fee</th><th class="num">Total</th></tr>' +
         Object.keys(sum).sort().map(k => '<tr><td>' + h(k) + '</td><td class="num">' + sum[k].n + '</td><td class="num">' + money(sum[k].p) + '</td><td class="num">' + money(sum[k].f) + '</td><td class="num">' + money(sum[k].t) + '</td></tr>').join('') +
@@ -764,12 +764,12 @@ VIEWS.jobs = async function(){
       j.parts.map(p => '<tr><td>' + h(p.name) + (p.cond ? ' <span class="muted">(' + h(p.cond) + ')</span>' : '') + (p.noPrice ? ' <span style="color:#b42318">no price</span>' : '') + '</td><td class="num">' + p.qty + '</td><td class="num">' + money(p.unit) + '</td><td class="num">' + money(p.total) + '</td></tr>').join('') + '</table>' : '<div class="muted">None</div>') +
     '<h4>Service fee</h4>' + (j.fees.length ? '<table class="tbl"><tr><th>Service</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Total</th></tr>' +
       j.fees.map(f => '<tr><td>' + h(f.name) + '</td><td class="num">' + f.qty + '</td><td class="num">' + money(f.price) + '</td><td class="num">' + money(f.total) + '</td></tr>').join('') + '</table>' : '<div class="muted">None</div>') +
-    '<table class="tbl" style="margin-top:8px"><tr><td>Spare parts (price + ' + Math.round(data.markup * 100) + '%)</td><td class="num">' + money(j.partsTotal) + '</td></tr><tr><td>Service fee</td><td class="num">' + money(j.feeTotal) + '</td></tr>' +
+    '<table class="tbl" style="margin-top:8px"><tr><td>Spare parts</td><td class="num">' + money(j.partsTotal) + '</td></tr><tr><td>Service fee</td><td class="num">' + money(j.feeTotal) + '</td></tr>' +
     '<tr class="tot"><td>Total</td><td class="num">' + money(j.total) + '</td></tr></table>' +
     (j.photos.length ? '<h4>Photos</h4><div class="ph">' + j.photos.map(id => '<img loading="eager" src="https://drive.google.com/thumbnail?id=' + h(id) + '&sz=w800" onerror="this.style.display=\'none\'">').join('') + '</div>' : '') + '</div>';
   const csv = () => {
     const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-    const rows = [['Date', 'Record ID', 'Type', 'Department', 'Vehicle', 'Requested by', 'WO / SO number', 'Mechanics', 'Job description', 'Notes / findings', 'Spare parts', 'Spare parts total (+' + Math.round(data.markup * 100) + '%)', 'Service fee items', 'Service fee total', 'Total']];
+    const rows = [['Date', 'Record ID', 'Type', 'Department', 'Vehicle', 'Requested by', 'WO / SO number', 'Mechanics', 'Job description', 'Notes / findings', 'Spare parts', 'Spare parts total', 'Service fee items', 'Service fee total', 'Total']];
     chosen().forEach(j => rows.push([j.date, j.id, j.kind, j.dept, j.vehicle, j.requestedBy, j.woNumber, j.mechanics, j.job, j.notes,
       j.parts.map(p => p.name + ' x' + p.qty + ' @' + p.unit).join('; '), j.partsTotal, j.fees.map(f => f.name + ' x' + f.qty + ' @' + f.price).join('; '), j.feeTotal, j.total]));
     const blob = new Blob(['﻿' + rows.map(r => r.map(q).join(',')).join('\r\n')], {type: 'text/csv;charset=utf-8'});
