@@ -79,6 +79,29 @@
   .toggle span{flex:1;text-align:center;padding:10px;cursor:pointer}
   .toggle span.on{background:var(--brand);color:#fff}
   .hide{display:none!important}
+  .jc{background:#fff;color:#14212b;border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+  .jc .jh{display:flex;justify-content:space-between;gap:10px;border-bottom:2px solid #0f5e4a;padding-bottom:8px;margin-bottom:10px}
+  .jc .jh b{font-size:15px} .jc .co{font-size:11px;color:#5d6b76}
+  .jc h4{margin:12px 0 4px;font-size:13px;text-transform:uppercase;letter-spacing:.4px;color:#0f5e4a}
+  .jc .tbl td,.jc .tbl th{padding:5px 4px;font-size:13px}
+  .jc .num{text-align:right;white-space:nowrap}
+  .jc .tot td{font-weight:700;border-top:2px solid #14212b}
+  .jc .ph{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .jc .ph img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:6px;border:1px solid #dde3e8}
+  .sum td,.sum th{font-size:13px}
+  @media screen and (max-width:520px){
+    .jc{padding:12px}
+    .jc .tbl td,.jc .tbl th{font-size:11.5px;padding:4px 3px}
+    .jc .jh{flex-direction:column;gap:2px} .jc .jh .co[style]{text-align:left!important}
+  }
+  @media print{
+    header,.noprint,#toast{display:none!important}
+    html,body{background:#fff}
+    main{max-width:none;padding:0}
+    .card{border:0;padding:0}
+    .jc{border:0;border-radius:0;padding:0;page-break-before:always;break-before:page}
+    .jc .ph img{break-inside:avoid}
+  }
   .hist.tap{cursor:pointer;border-radius:0 8px 8px 0}
   .hist.tap:active{background:#f6f8f9}
   .clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
@@ -423,7 +446,7 @@ VIEWS.home = function(){
     '<div class="card stack">' +
       '<button class="btn" onclick="go(\'calendar\')">Maintenance calendar</button>' +
       '<button class="btn alt" onclick="go(\'parts\')">Spare parts and stock</button>' +
-      '<button class="btn alt" onclick="go(\'jobs\')">Job completion (admin)</button>' +
+      '<button class="btn alt" onclick="go(\'jobs\')">Job completion report (admin)</button>' +
       '<div class="grid2"><button class="btn alt" onclick="go(\'restock\',\'in\')">Receive stock (purchasing)</button>' +
       '<button class="btn alt" onclick="go(\'addPart\')">Add new spare part</button></div>' +
       '<div class="grid2"><button class="btn alt" onclick="go(\'restock\',\'count\')">Stock count</button>' +
@@ -698,45 +721,80 @@ VIEWS.calendar = async function(){
 };
 
 VIEWS.jobs = async function(){
-  setTitle('Job completion'); app().onclick = null;
+  setTitle('Job completion report'); app().onclick = null;
   const pin = await adminPin();
   if (!pin) { app().innerHTML = '<div class="card">Admin PIN needed.</div>'; return; }
-  loading();
-  let d;
-  try { d = await api('apiPendingJobs', pin); } catch(e){ return showError(e); }
-  app().innerHTML = '<div class="card"><h3>Waiting for job completion <span class="muted small">(' + d.pending.length + ')</span></h3><div class="list">' +
-    (d.pending.map((j, i) => '<div class="item" data-j="' + i + '"><div class="row"><b>' + h(j.woNumber) + '</b><span class="small muted" style="text-align:right">' + h(j.date) + '</span></div>' +
-      '<div class="small">' + h(j.vehicle + ' | ' + j.dept) + '</div><div class="small muted">' + h(j.job.split('\n')[0]) + '</div></div>').join('') || '<div class="muted">Nothing pending</div>') +
-    '</div></div><div class="card"><h3>Recently completed</h3>' +
-    (d.recent.map(r => '<div class="small" style="padding:6px 0;border-bottom:1px solid var(--line)"><b>' + h(r.woNumber || r.woId) + '</b> ' + h(r.vehicle) + ' | ' + h(r.status) +
-      (r.pdf ? ' | <a href="' + h(r.pdf) + '" target="_blank">PDF</a>' : '') + '</div>').join('') || '<div class="muted">None</div>') + '</div>';
-  app().onclick = e => { const j = e.target.closest('[data-j]'); if (j) go('jobForm', d.pending[+j.dataset.j]); };
-};
-
-VIEWS.jobForm = function(j){
-  setTitle('Job completion ' + j.woNumber); app().onclick = null;
-  const parts = j.parts.map(p => { return '- ' + partName(p.text) + ' x' + p.qty + (p.cond ? ' (' + p.cond + ')' : ''); }).join('\n');
-  app().innerHTML = '<div class="card"><div class="kv"><div>WO ID</div><div>' + h(j.woId) + '</div><div>WO Number</div><div>' + h(j.woNumber) + '</div>' +
-    '<div>Vehicle</div><div>' + h(j.vehicle + ' ' + j.type) + '</div><div>Requested by</div><div>' + h(j.requestedBy + ' | ' + j.dept) + '</div>' +
-    '<div>Date</div><div>' + h(j.date) + '</div><div>Mechanics</div><div>' + h(j.mechanics) + '</div></div>' +
-    '<div class="pre" style="margin-top:8px">' + h(j.job) + '</div>' + (parts ? '<div class="pre small" style="margin-top:6px"><b>Parts</b>\n' + h(parts) + '</div>' : '') +
-    (j.fees && j.fees.length ? '<div class="pre small" style="margin-top:6px"><b>Service fee (goes to Labor / Service on the PDF)</b>\n' + h(j.fees.map(l => '- ' + l.name + ' x' + l.qty + ' ' + rp(l.total)).join('\n')) + '\n<b>Total ' + h(rp(j.feeTotal)) + '</b></div>' : '') + '</div>' +
-    '<div class="card"><label style="margin-top:0">Work performed <span class="req">*</span></label><textarea id="j_work">(SERVICE) Mechanic Service by Transport Dept. to ' + h(j.job.split('\n')[0]) + '</textarea>' +
-    '<label>Findings <span class="req">*</span></label><textarea id="j_find">' + h(j.notes) + '</textarea>' +
-    '<label>Repair / replacement performed <span class="req">*</span></label><textarea id="j_rep"></textarea>' +
-    '<label>Status</label><select id="j_status">' + BOOT.config.jcStatuses.map(s => '<option>' + h(s) + '</option>').join('') + '</select>' +
-    '<label>Notes / remarks</label><input id="j_notes"></div>' +
-    '<button class="btn" id="save">Save and create PDF</button><div id="out" style="margin-top:12px"></div>';
-  $('#save').onclick = async () => {
-    const f = {woId: j.woId, workPerformed: $('#j_work').value, findings: $('#j_find').value, repair: $('#j_rep').value, status: $('#j_status').value, notes: $('#j_notes').value};
-    if (!f.workPerformed.trim() || !f.findings.trim() || !f.repair.trim()) return toast('Fill in all required fields');
-    const b = $('#save'); b.disabled = true; b.textContent = 'Saving and creating PDF...';
+  const today = BOOT.config.today, first = today.slice(0, 8) + '01';
+  const last = store.get('jcRange') || {from: first, to: today};
+  app().innerHTML =
+    '<div class="card noprint"><div class="grid2"><div><label style="margin-top:0">From</label><input type="date" id="jr_from" value="' + h(last.from) + '"></div>' +
+    '<div><label style="margin-top:0">To</label><input type="date" id="jr_to" value="' + h(last.to) + '"></div></div>' +
+    '<button class="btn" style="margin-top:10px" id="jr_load">Show jobs</button></div><div id="jr_out"></div>';
+  let data = null, sel = new Set();
+  const money = n => rp(n);
+  const chosen = () => data.jobs.filter(j => sel.has(j.dept));
+  const draw = () => {
+    const depts = {};
+    data.jobs.forEach(j => { const d = depts[j.dept] = depts[j.dept] || {dept: j.dept, n: 0, total: 0, charge: false}; d.n++; d.total += j.total; d.charge = d.charge || j.chargeable; });
+    const list = Object.keys(depts).sort().map(k => depts[k]);
+    const jobs = chosen();
+    const sum = {};
+    jobs.forEach(j => { const x = sum[j.dept] = sum[j.dept] || {n: 0, p: 0, f: 0, t: 0}; x.n++; x.p += j.partsTotal; x.f += j.feeTotal; x.t += j.total; });
+    const G = jobs.reduce((g, j) => ({p: g.p + j.partsTotal, f: g.f + j.feeTotal, t: g.t + j.total}), {p: 0, f: 0, t: 0});
+    $('#jr_out').innerHTML =
+      '<div class="card noprint"><h3>Departments <span class="muted small">(' + data.jobs.length + ' jobs in this period)</span></h3>' +
+      '<div class="chips">' + list.map(d => '<span class="chip' + (sel.has(d.dept) ? ' on' : '') + '" data-d="' + h(d.dept) + '">' + h(d.dept) + ' (' + d.n + ')</span>').join('') + '</div>' +
+      '<div class="grid2" style="margin-top:10px"><button class="btn ghost sm" style="width:100%" data-all="charge">Outside departments</button><button class="btn ghost sm" style="width:100%" data-all="none">Clear</button></div>' +
+      '<div class="grid2" style="margin-top:10px"><button class="btn" id="jr_print"' + (jobs.length ? '' : ' disabled') + '>Print / Save PDF</button><button class="btn alt" id="jr_csv"' + (jobs.length ? '' : ' disabled') + '>Download Excel</button></div>' +
+      '<div class="small muted" style="margin-top:8px">Spare parts are charged at price + ' + Math.round(data.markup * 100) + '%. In the print window choose "Save as PDF".</div></div>' +
+      (jobs.length ? '<div class="jc" style="page-break-before:auto;break-before:auto"><div class="jh"><div><b>JOB COMPLETION REPORT</b><div class="co">Nuanu Mechanic - Transport Department</div></div><div class="co" style="text-align:right">' + h(data.from) + ' - ' + h(data.to) + '<br>' + jobs.length + ' jobs</div></div>' +
+        '<table class="tbl sum"><tr><th>Department</th><th class="num">Jobs</th><th class="num">Parts</th><th class="num">Service fee</th><th class="num">Total</th></tr>' +
+        Object.keys(sum).sort().map(k => '<tr><td>' + h(k) + '</td><td class="num">' + sum[k].n + '</td><td class="num">' + money(sum[k].p) + '</td><td class="num">' + money(sum[k].f) + '</td><td class="num">' + money(sum[k].t) + '</td></tr>').join('') +
+        '<tr class="tot"><td>Total</td><td class="num">' + jobs.length + '</td><td class="num">' + money(G.p) + '</td><td class="num">' + money(G.f) + '</td><td class="num">' + money(G.t) + '</td></tr></table></div>' +
+        jobs.map(jobPage).join('')
+      : '<div class="card muted">Choose at least one department.</div>');
+  };
+  const jobPage = j => '<div class="jc"><div class="jh"><div><b>JOB COMPLETION</b><div class="co">Nuanu Mechanic - Transport Department</div></div><div class="co" style="text-align:right">' + h(j.id) + '<br>' + h(j.date) + '</div></div>' +
+    '<div class="kv"><div>Department</div><div>' + h(j.dept) + '</div><div>Vehicle</div><div>' + h(j.vehicle + (j.vehicleType && j.vehicleType !== '-' ? ' - ' + j.vehicleType : '')) + '</div>' +
+    (j.requestedBy ? '<div>Requested by</div><div>' + h(j.requestedBy) + '</div>' : '') + (j.woNumber ? '<div>WO / SO number</div><div>' + h(j.woNumber) + '</div>' : '') +
+    '<div>Type</div><div>' + h(j.kind) + '</div><div>Mechanics</div><div>' + h(j.mechanics || '-') + '</div><div>Status</div><div>Completed</div></div>' +
+    '<h4>Job description</h4><div class="pre">' + h(j.job || '-') + '</div>' +
+    (j.notes ? '<h4>Notes / findings</h4><div class="pre">' + h(j.notes) + '</div>' : '') +
+    '<h4>Spare parts used</h4>' + (j.parts.length ? '<table class="tbl"><tr><th>Part</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Total</th></tr>' +
+      j.parts.map(p => '<tr><td>' + h(p.name) + (p.cond ? ' <span class="muted">(' + h(p.cond) + ')</span>' : '') + (p.noPrice ? ' <span style="color:#b42318">no price</span>' : '') + '</td><td class="num">' + p.qty + '</td><td class="num">' + money(p.unit) + '</td><td class="num">' + money(p.total) + '</td></tr>').join('') + '</table>' : '<div class="muted">None</div>') +
+    '<h4>Service fee</h4>' + (j.fees.length ? '<table class="tbl"><tr><th>Service</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Total</th></tr>' +
+      j.fees.map(f => '<tr><td>' + h(f.name) + '</td><td class="num">' + f.qty + '</td><td class="num">' + money(f.price) + '</td><td class="num">' + money(f.total) + '</td></tr>').join('') + '</table>' : '<div class="muted">None</div>') +
+    '<table class="tbl" style="margin-top:8px"><tr><td>Spare parts (price + ' + Math.round(data.markup * 100) + '%)</td><td class="num">' + money(j.partsTotal) + '</td></tr><tr><td>Service fee</td><td class="num">' + money(j.feeTotal) + '</td></tr>' +
+    '<tr class="tot"><td>Total</td><td class="num">' + money(j.total) + '</td></tr></table>' +
+    (j.photos.length ? '<h4>Photos</h4><div class="ph">' + j.photos.map(id => '<img loading="eager" src="https://drive.google.com/thumbnail?id=' + h(id) + '&sz=w800" onerror="this.style.display=\'none\'">').join('') + '</div>' : '') + '</div>';
+  const csv = () => {
+    const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const rows = [['Date', 'Record ID', 'Type', 'Department', 'Vehicle', 'Requested by', 'WO / SO number', 'Mechanics', 'Job description', 'Notes / findings', 'Spare parts', 'Spare parts total (+' + Math.round(data.markup * 100) + '%)', 'Service fee items', 'Service fee total', 'Total']];
+    chosen().forEach(j => rows.push([j.date, j.id, j.kind, j.dept, j.vehicle, j.requestedBy, j.woNumber, j.mechanics, j.job, j.notes,
+      j.parts.map(p => p.name + ' x' + p.qty + ' @' + p.unit).join('; '), j.partsTotal, j.fees.map(f => f.name + ' x' + f.qty + ' @' + f.price).join('; '), j.feeTotal, j.total]));
+    const blob = new Blob(['﻿' + rows.map(r => r.map(q).join(',')).join('\r\n')], {type: 'text/csv;charset=utf-8'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Job_Completion_' + $('#jr_from').value + '_' + $('#jr_to').value + '.csv';
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  };
+  $('#jr_out').onclick = e => {
+    const c = e.target.closest('[data-d]');
+    if (c) { const d = c.dataset.d; sel.has(d) ? sel.delete(d) : sel.add(d); return draw(); }
+    const all = e.target.dataset.all;
+    if (all) { sel = new Set(all === 'charge' ? data.jobs.filter(j => j.chargeable).map(j => j.dept) : []); return draw(); }
+    if (e.target.id === 'jr_print') window.print();
+    if (e.target.id === 'jr_csv') csv();
+  };
+  $('#jr_load').onclick = async () => {
+    const f = $('#jr_from').value, t = $('#jr_to').value;
+    if (!f || !t) return toast('Choose the dates');
+    store.set('jcRange', {from: f, to: t});
+    const b = $('#jr_load'); b.disabled = true; b.textContent = 'Loading...';
     try {
-      const r = await api('apiSaveJobCompletion', ADMIN_PIN, f);
-      $('#out').innerHTML = '<div class="card"><b>' + h(r.jcId) + ' saved</b>' + (r.pdfUrl ? '<a class="btn" style="margin-top:10px" href="' + h(r.pdfUrl) + '" target="_blank">Open PDF</a>' : '') +
-        (r.warnings.length ? '<div class="err" style="margin-top:8px">' + h(r.warnings.join('\n')) + '</div>' : '') + '</div>';
-      b.textContent = 'Saved';
-    } catch(e){ toast(e.message, 6000); b.disabled = false; b.textContent = 'Save and create PDF'; }
+      data = await api('apiJobReport', ADMIN_PIN, f, t);
+      sel = new Set(data.jobs.filter(j => j.chargeable).map(j => j.dept));
+      draw();
+    } catch(e){ toast(e.message, 6000); }
+    b.disabled = false; b.textContent = 'Show jobs';
   };
 };
 
