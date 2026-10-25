@@ -181,7 +181,7 @@ let pushed = 0;
 function urlFor(c){
   if (c.view === 'asset') return '?v=' + encodeURIComponent(c.arg);
   if (c.view === 'part') return '?p=' + encodeURIComponent(c.arg);
-  if (['calendar','parts','jobs','addVehicle','addPart'].indexOf(c.view) > -1) return '?page=' + c.view;
+  if (['calendar','parts','jobs','addVehicle','addPart','inputLog'].indexOf(c.view) > -1) return '?page=' + c.view;
   if (c.view === 'restock') return '?page=restock' + (c.arg === 'count' ? '&mode=count' : '');
   if (c.view === 'home') return location.pathname;
   return null;
@@ -317,10 +317,15 @@ function photoPicker(el){
 }
 
 // ---------- mechanics
-function mechPicker(el){
-  const sel = new Set((store.get('lastMechs') || []).filter(n => BOOT.mechanics.indexOf(n) > -1));
+function mechPicker(el, init){
+  const names = BOOT.mechanics.slice();
+  let sel;
+  if (init) {   // edit: preselect the saved names (keep names no longer in the list)
+    sel = new Set();
+    init.forEach(x => { const m = names.find(n => n.toLowerCase() === String(x).toLowerCase()); if (m) sel.add(m); else { names.push(x); sel.add(x); } });
+  } else sel = new Set((store.get('lastMechs') || []).filter(n => BOOT.mechanics.indexOf(n) > -1));
   const draw = () => {
-    el.innerHTML = '<div class="chips">' + BOOT.mechanics.map(n =>
+    el.innerHTML = '<div class="chips">' + names.map(n =>
       '<span class="chip' + (sel.has(n) ? ' on' : '') + '" data-n="' + h(n) + '">' + h(n) + '</span>').join('') + '</div>';
   };
   el.addEventListener('click', e => {
@@ -332,9 +337,12 @@ function mechPicker(el){
 }
 
 // ---------- spare parts picker (search or scan part QR)
-function partsPicker(el){
+function partsPicker(el, init){
   const lines = [];
   const conds = BOOT.config.conditions;
+  let changed = false;
+  const oldText = [];
+  (init || []).forEach(l => { if (l.id && partById(l.id)) lines.push({id: l.id, qty: Number(l.qty) || 1, cond: l.cond || conds[0]}); else oldText.push(l.text + ' x' + l.qty); });
   el.innerHTML =
     '<div class="row"><input type="search" placeholder="Search part name or ID" data-q>' +
     '<button type="button" class="btn alt sm" style="flex:0 0 auto" data-scan>Scan QR</button></div>' +
@@ -346,10 +354,11 @@ function partsPicker(el){
     if (lines.length >= BOOT.config.maxParts) return toast('Max ' + BOOT.config.maxParts + ' parts');
     const ex = lines.find(l => l.id === id);
     if (ex) ex.qty++; else lines.push({id, qty: 1, cond: conds[0]});
+    changed = true;
     q.value = ''; res.classList.add('hide'); draw();
   };
   const draw = () => {
-    box.innerHTML = lines.map((l, i) => {
+    box.innerHTML = (oldText.length ? '<div class="small" style="margin-top:8px;color:var(--warn)">Old part text (not in the spare part list): ' + h(oldText.join(', ')) + '. It is removed if you change the spare parts.</div>' : '') + lines.map((l, i) => {
       const p = partById(l.id);
       const low = p.avail <= 0 ? '<span class="pill p-bad">Stock ' + p.avail + '</span>' : '<span class="pill p-mute">Stock ' + p.avail + '</span>';
       return '<div class="pline"><div class="top"><div><b>' + h(p.name) + '</b><div class="small muted">' + h(p.id) + ' ' + low + '</div></div>' +
@@ -372,19 +381,22 @@ function partsPicker(el){
     if (!text) return toast('No QR found in the photo. Try closer and steady.');
     add(qrParam(text, 'p'));
   };
-  box.addEventListener('click', e => { const i = e.target.dataset.rm; if (i != null) { lines.splice(+i, 1); draw(); } });
+  box.addEventListener('click', e => { const i = e.target.dataset.rm; if (i != null) { lines.splice(+i, 1); changed = true; draw(); } });
   box.addEventListener('change', e => {
     const d = e.target.dataset;
-    if (d.qty != null) lines[+d.qty].qty = Math.max(1, parseInt(e.target.value, 10) || 1);
-    if (d.cond != null) lines[+d.cond].cond = e.target.value;
+    if (d.qty != null) { lines[+d.qty].qty = Math.max(1, parseInt(e.target.value, 10) || 1); changed = true; }
+    if (d.cond != null) { lines[+d.cond].cond = e.target.value; changed = true; }
   });
-  return { get: () => lines.map(l => Object.assign({}, l)) };
+  if (init) draw();
+  return { get: () => lines.map(l => Object.assign({}, l)), changed: () => changed };
 }
 
 // ---------- service fee picker (only for vehicles of outside departments)
-function feePicker(el){
+function feePicker(el, init){
   const list = BOOT.fees || [];
   const lines = [];
+  let changed = false;
+  (init || []).forEach(l => { const f = list.find(x => x.id === l.id); if (f) lines.push({id: l.id, qty: l.qty || 1, price: f.price ? '' : String(l.price || '')}); });
   const cats = Array.from(new Set(list.map(f => f.cat)));
   el.innerHTML = '<select data-sel><option value="">+ Add a service...</option>' +
     cats.map(c => '<optgroup label="' + h(c) + '">' + list.filter(f => f.cat === c).map(f =>
@@ -409,11 +421,13 @@ function feePicker(el){
     const id = sel.value; sel.value = ''; if (!id) return;
     const ex = lines.find(l => l.id === id);
     if (ex) ex.qty++; else lines.push({id, qty: 1, price: ''});
+    changed = true;
     draw();
   };
-  box.addEventListener('click', e => { const i = e.target.dataset.rm; if (i != null) { lines.splice(+i, 1); draw(); } });
+  box.addEventListener('click', e => { const i = e.target.dataset.rm; if (i != null) { lines.splice(+i, 1); changed = true; draw(); } });
   box.addEventListener('input', e => {
     const d = e.target.dataset;
+    changed = true;
     if (d.qty != null) lines[+d.qty].qty = Math.max(1, parseInt(e.target.value, 10) || 1);
     if (d.price != null) lines[+d.price].price = e.target.value;
     const total = lines.reduce((s, l) => s + lineTotal(l), 0);
@@ -422,6 +436,7 @@ function feePicker(el){
   draw();
   return {
     get: () => lines.map(l => ({id: l.id, qty: l.qty, price: String(l.price || '').replace(/\D/g, '')})),
+    changed: () => changed,
     missing: () => { const l = lines.find(l => !byId(l.id).price && !(Number(String(l.price).replace(/\D/g, '')) > 0)); return l ? byId(l.id).name : ''; }
   };
 }
@@ -447,6 +462,7 @@ VIEWS.home = function(){
       '<button class="btn" onclick="go(\'calendar\')">Maintenance calendar</button>' +
       '<button class="btn alt" onclick="go(\'parts\')">Spare parts and stock</button>' +
       '<button class="btn alt" onclick="go(\'jobs\')">Job completion report (admin)</button>' +
+      '<button class="btn alt" onclick="go(\'inputLog\')">Input log - check and edit (admin)</button>' +
       '<div class="grid2"><button class="btn alt" onclick="go(\'restock\',\'in\')">Receive stock (purchasing)</button>' +
       '<button class="btn alt" onclick="go(\'addPart\')">Add new spare part</button></div>' +
       '<div class="grid2"><button class="btn alt" onclick="go(\'restock\',\'count\')">Stock count</button>' +
@@ -1016,6 +1032,132 @@ VIEWS.addPart = async function(arg){
       $('#nextPart').onclick = () => { current.arg = {}; render(); };
       $('#openPart').onclick = () => go('part', r.id);
     } catch(e){ toast(e.message, 6000); b.disabled = false; b.textContent = 'Save new part'; }
+  };
+};
+
+// ---------- input log (admin): every activity, maintenance and stock movement, tap to edit
+VIEWS.inputLog = async function(){
+  setTitle('Input log'); app().onclick = null;
+  const pin = await adminPin();
+  if (!pin) { app().innerHTML = '<div class="card">Admin PIN needed.</div>'; return; }
+  const today = BOOT.config.today;
+  const st = store.get('logState') || {from: addDaysISO(today, -6), to: today, type: 'all', q: ''};
+  app().innerHTML =
+    '<div class="card"><div class="grid2"><div><label style="margin-top:0">From</label><input type="date" id="lg_from" value="' + h(st.from) + '"></div>' +
+    '<div><label style="margin-top:0">To</label><input type="date" id="lg_to" value="' + h(st.to) + '"></div></div>' +
+    '<button class="btn" style="margin-top:10px" id="lg_load">Show</button>' +
+    '<div class="chips" id="lg_type" style="margin-top:12px">' + [['all','All'],['activity','Activity'],['maintenance','Maintenance'],['stock','Stock']].map(([k, t]) =>
+      '<span class="chip' + (st.type === k ? ' on' : '') + '" data-t="' + k + '">' + t + '</span>').join('') + '</div>' +
+    '<input type="search" id="lg_q" style="margin-top:10px" placeholder="Search vehicle, part, mechanic, ID" value="' + h(st.q) + '"></div>' +
+    '<div class="card list" id="lg_list"><div class="muted">Press Show.</div></div>';
+  let items = window.__logItems || null;
+  const pill = {activity: '<span class="pill p-info">Activity</span>', maintenance: '<span class="pill p-ok">Maintenance</span>', stock: '<span class="pill p-warn">Stock</span>'};
+  const line = x => {
+    let title, sub;
+    if (x.kind === 'stock') { title = x.partName + ' ' + (x.qty > 0 ? '+' : '') + x.qty; sub = x.type + (x.notes ? ' | ' + x.notes : ''); }
+    else if (x.kind === 'activity') { title = x.vehicle + ' - ' + (x.job || '').split('\n')[0]; sub = x.mechanics.join(', ') + (x.parts.length ? ' | ' + x.parts.length + ' part' + (x.parts.length > 1 ? 's' : '') : ''); }
+    else { title = x.vehicle + ' - ' + x.type; sub = x.mechanics.join(', '); }
+    return '<div class="item" data-id="' + h(x.id) + '"><div class="row" style="align-items:baseline"><div style="flex:3">' + pill[x.kind] + ' <b>' + h(title) + '</b></div>' +
+      '<span class="small muted" style="flex:0 0 auto;text-align:right">' + h(x.dateText) + '</span></div>' +
+      '<div class="small muted">' + h(sub) + ' | ' + h(x.id) + (x.edited ? ' | <span style="color:var(--warn)">edited ' + h(x.edited) + '</span>' : '') + '</div></div>';
+  };
+  const draw = () => {
+    if (!items) return;
+    const t = st.q.trim().toLowerCase();
+    const rows = items.filter(x => (st.type === 'all' || x.kind === st.type) &&
+      (!t || JSON.stringify([x.id, x.vehicle, x.partName, x.partId, x.mechanics, x.job, x.type, x.notes, x.dept]).toLowerCase().indexOf(t) > -1));
+    $('#lg_list').innerHTML = '<div class="small muted" style="margin-bottom:6px">' + rows.length + ' entries. Tap one to edit.</div>' + (rows.map(line).join('') || '<div class="muted">Nothing found.</div>');
+  };
+  const load = async () => {
+    st.from = $('#lg_from').value; st.to = $('#lg_to').value; store.set('logState', st);
+    const b = $('#lg_load'); b.disabled = true; b.textContent = 'Loading...';
+    try { items = (await api('apiInputLog', ADMIN_PIN, st.from, st.to)).items; window.__logItems = items; draw(); }
+    catch(e){ toast(e.message, 6000); }
+    b.disabled = false; b.textContent = 'Show';
+  };
+  $('#lg_load').onclick = load;
+  $('#lg_type').onclick = e => { const k = e.target.dataset.t; if (!k) return; st.type = k; store.set('logState', st);
+    $('#lg_type').querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.t === k)); draw(); };
+  $('#lg_q').oninput = () => { st.q = $('#lg_q').value; store.set('logState', st); draw(); };
+  $('#lg_list').onclick = e => { const it = e.target.closest('[data-id]'); if (!it) return; const x = items.find(i => i.id === it.dataset.id); if (x) go('editRecord', x); };
+  if (items) draw(); else load();
+};
+
+VIEWS.editRecord = function(x){
+  setTitle('Edit ' + x.id); app().onclick = null;
+  const C = BOOT.config;
+  const assetList = '<datalist id="e_assets">' + BOOT.assets.map(a => '<option value="' + h(a.id) + '">' + h([a.type, a.dept].filter(v => v && v !== '-').join(' | ')) + '</option>').join('') + '</datalist>';
+  const head = '<div class="card"><div class="small muted">' + h(x.id) + (x.edited ? ' | last edited ' + h(x.edited) : '') + '</div>' +
+    '<div class="small" style="margin-top:4px;color:var(--warn)">Changes are saved in the Edit_Log sheet. Photos cannot be changed here.</div></div>';
+  const buttons = '<button class="btn" id="e_save">Save changes</button><button class="btn ghost" style="margin-top:8px;color:var(--bad)" id="e_del">Delete this record</button>';
+  let getForm;
+
+  if (x.kind === 'stock') {
+    app().innerHTML = head + '<div class="card"><b>' + h(x.partName) + '</b><div class="small muted">' + h(x.partId) + '</div>' +
+      '<div class="grid2"><div><label>Date</label><input type="date" id="e_date" value="' + h(x.date) + '"></div>' +
+      '<div><label>Type</label><select id="e_type"><option' + (/adjust/i.test(x.type) ? '' : ' selected') + '>Restock</option><option' + (/adjust/i.test(x.type) ? ' selected' : '') + '>Adjustment</option></select></div></div>' +
+      '<div class="grid2"><div><label>Qty</label><input type="number" id="e_qty" inputmode="numeric" value="' + x.qty + '"></div>' +
+      '<div><label>Unit price</label><input id="e_price" inputmode="numeric" value="' + (x.price || '') + '"></div></div>' +
+      '<label>Notes / PO</label><input id="e_notes" value="' + h(x.notes) + '">' +
+      '<div class="small muted" style="margin-top:6px">Adjustment can be minus (e.g. -2). Restock must be more than 0.</div></div>' + buttons;
+    getForm = () => ({date: $('#e_date').value, type: $('#e_type').value, qty: $('#e_qty').value, price: $('#e_price').value, notes: $('#e_notes').value});
+  } else {
+    const isM = x.kind === 'maintenance';
+    const asset = () => BOOT.assets.find(a => a.id.toLowerCase() === $('#e_veh').value.trim().toLowerCase());
+    app().innerHTML = head + '<div class="card">' +
+      '<div class="grid2"><div><label style="margin-top:0">Vehicle / area</label><input id="e_veh" list="e_assets" value="' + h(x.vehicle) + '">' + assetList + '</div>' +
+      '<div><label style="margin-top:0">Date</label><input type="date" id="e_date" value="' + h(x.date) + '"></div></div>' +
+      (isM ? '<label>Maintenance type</label><select id="e_mtype">' + C.maintTypes.map(t => '<option' + (t === x.type ? ' selected' : '') + '>' + h(t) + '</option>').join('') + '</select>' +
+             '<label>Washing & cleaning</label><select id="e_wash"><option value="1"' + (x.washing ? ' selected' : '') + '>Yes</option><option value="0"' + (x.washing ? '' : ' selected') + '>No</option></select>'
+           : '<div class="grid2"><div><label>Requested by</label><input id="e_req" value="' + h(x.requestedBy) + '"></div><div><label>WO / SO number</label><input id="e_wo" value="' + h(x.woNumber) + '"></div></div>' +
+             '<label>Job description</label><textarea id="e_job">' + h(x.job) + '</textarea>') +
+      '<label>Mechanics</label><div id="e_mech"></div></div>' +
+      (isM ? '<div class="card"><h3>Components</h3>' + C.groups.map(g => '<div class="group" data-g="' + g.key + '"><h4>' + h(g.label) + '</h4><div class="chips">' +
+          C.actions.map(a => '<span class="chip' + ((x.groups[g.key] || {actions: []}).actions.indexOf(a) > -1 ? ' on' : '') + '" data-act="' + h(a) + '">' + h(a) + '</span>').join('') +
+          '</div><input style="margin-top:8px" placeholder="Note (optional)" data-note value="' + h((x.groups[g.key] || {}).note || '') + '"></div>').join('') + '</div>' : '') +
+      '<div class="card"><label style="margin-top:0">Spare parts used</label><div id="e_parts"></div>' +
+      '<div id="e_feebox"></div>' +
+      '<label>' + (isM ? 'Notes' : 'Notes / findings') + '</label><textarea id="e_notes" style="min-height:60px">' + h(isM ? x.partsNote : x.notes) + '</textarea>' +
+      (isM ? '<div class="grid2 dt"><div><label>Next maintenance</label><input type="date" id="e_next" value="' + h(x.nextDate) + '"></div>' +
+             '<div><label>Next type</label><select id="e_ntype">' + C.maintTypes.map(t => '<option' + (t === x.nextType ? ' selected' : '') + '>' + h(t) + '</option>').join('') + '</select></div></div>' : '') +
+      '</div>' + buttons;
+    const mech = mechPicker($('#e_mech'), x.mechanics);
+    const parts = partsPicker($('#e_parts'), x.parts);
+    let fees = null;
+    const sameVeh = () => $('#e_veh').value.trim().toLowerCase() === String(x.vehicle).toLowerCase();
+    const feeBox = () => {
+      const a = asset();
+      const charge = sameVeh() ? x.fee : !!(a && a.fee), dept = sameVeh() ? x.dept : (a ? a.dept : '');
+      if (charge) { $('#e_feebox').innerHTML = '<label>Service fee <span class="small muted">(charged to ' + h(dept) + ')</span></label><div id="e_fees"></div>'; fees = feePicker($('#e_fees'), x.fees); }
+      else { $('#e_feebox').innerHTML = x.fees && x.fees.length ? '<div class="small muted" style="margin-top:8px">No service fee for this department; the saved fee will be removed.</div>' : ''; fees = null; }
+    };
+    feeBox();
+    $('#e_veh').onchange = feeBox;
+    if (isM) app().querySelectorAll('.group').forEach(g => g.addEventListener('click', e => { if (e.target.dataset.act) e.target.classList.toggle('on'); }));
+    getForm = () => {
+      const f = {vehicle: $('#e_veh').value.trim(), date: $('#e_date').value, mechanics: mech.get(),
+        parts: parts.get(), partsChanged: parts.changed(), fees: fees ? fees.get() : [], feesChanged: fees ? fees.changed() : !sameVeh() && !!(x.fees && x.fees.length)};
+      if (isM) {
+        f.type = $('#e_mtype').value; f.washing = $('#e_wash').value === '1'; f.partsNote = $('#e_notes').value;
+        f.nextDate = $('#e_next').value; f.nextType = $('#e_ntype').value; f.groups = {};
+        app().querySelectorAll('.group').forEach(g => { f.groups[g.dataset.g] = {actions: Array.from(g.querySelectorAll('.chip.on')).map(c => c.dataset.act), note: g.querySelector('[data-note]').value}; });
+      } else { f.requestedBy = $('#e_req').value; f.woNumber = $('#e_wo').value; f.job = $('#e_job').value; f.notes = $('#e_notes').value; }
+      return f;
+    };
+  }
+  $('#e_save').onclick = async () => {
+    const b = $('#e_save'); b.disabled = true; b.textContent = 'Saving...';
+    try {
+      const r = await api('apiEditRecord', ADMIN_PIN, x.kind, x.id, getForm());
+      toast(r.changed ? 'Saved: ' + r.changed + ' field' + (r.changed > 1 ? 's' : '') + ' changed' : 'Nothing changed');
+      window.__logItems = null; BOOT = await api('apiBootstrap'); back();
+    } catch(e){ toast(e.message, 6000); b.disabled = false; b.textContent = 'Save changes'; }
+  };
+  $('#e_del').onclick = async () => {
+    if (!confirm('Delete ' + x.id + '? A copy is kept in the Edit_Log sheet.')) return;
+    const b = $('#e_del'); b.disabled = true;
+    try { await api('apiDeleteRecord', ADMIN_PIN, x.kind, x.id); toast('Deleted ' + x.id); window.__logItems = null; BOOT = await api('apiBootstrap'); back(); }
+    catch(e){ toast(e.message, 6000); b.disabled = false; }
   };
 };
 
