@@ -1170,14 +1170,14 @@ VIEWS.editRecord = function(x){
     const b = $('#e_save'); b.disabled = true; b.textContent = 'Saving...';
     try {
       const r = await api('apiEditRecord', ADMIN_PIN, x.kind, x.id, getForm());
-      toast(r.changed ? 'Saved: ' + r.changed + ' field' + (r.changed > 1 ? 's' : '') + ' changed' : 'Nothing changed');
+      toast((r.changed ? 'Saved: ' + r.changed + ' field' + (r.changed > 1 ? 's' : '') + ' changed' : 'Nothing changed') + (r.warning ? '. ' + r.warning : ''), r.warning ? 7000 : 2500);
       window.__logItems = null; BOOT = await api('apiBootstrap'); back();
     } catch(e){ toast(e.message, 6000); b.disabled = false; b.textContent = 'Save changes'; }
   };
   $('#e_del').onclick = async () => {
     if (!confirm('Delete ' + x.id + '? A copy is kept in the Edit_Log sheet.')) return;
     const b = $('#e_del'); b.disabled = true;
-    try { await api('apiDeleteRecord', ADMIN_PIN, x.kind, x.id); toast('Deleted ' + x.id); window.__logItems = null; BOOT = await api('apiBootstrap'); back(); }
+    try { const r = await api('apiDeleteRecord', ADMIN_PIN, x.kind, x.id); toast('Deleted ' + x.id + (r.warning ? '. ' + r.warning : ''), r.warning ? 7000 : 2500); window.__logItems = null; BOOT = await api('apiBootstrap'); back(); }
     catch(e){ toast(e.message, 6000); b.disabled = false; }
   };
 };
