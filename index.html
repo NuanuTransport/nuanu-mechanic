@@ -503,12 +503,13 @@ VIEWS.asset = async function(id){
       '<div>Last service</div><div>' + (m.lastDate ? h(m.lastDate + ' - ' + m.lastType) : '-') + '</div>' +
       '<div>Next service</div><div>' + (m.nextDate ? h(m.nextDate + ' - ' + m.nextType) : h(m.nextType)) + '</div></div>';
   }
-  html += '</div><div class="card stack">' +
+  html += '</div>' + (d.cost ? '<div class="card" id="costCard"></div>' : '') + '<div class="card stack">' +
     '<button class="btn" id="bAct">' + (a.cls === 'Area' ? 'Log area activity' : 'Log activity / repair') + '</button>' +
     (a.cls === 'Vehicle' ? '<button class="btn alt" id="bMaint">Scheduled maintenance</button>' : '') +
     '</div><div class="card"><h3>History <span class="muted small">(' + d.total + ')</span></h3><div id="hist"></div>' +
     '<button class="btn ghost hide" id="more">Load more</button></div>';
   app().innerHTML = html;
+  if (d.cost) costCard(d.cost);
   $('#bAct').onclick = () => go('activity', {asset: a});
   if ($('#bMaint')) $('#bMaint').onclick = () => go('maintenance', {asset: a, maint: m});
   let offset = 0;
@@ -532,6 +533,26 @@ VIEWS.asset = async function(id){
     $('#more').disabled = false;
   };
 };
+
+// total spare part cost and service fee for the vehicle / area (this month, this year, all time)
+function costCard(c){
+  let per = store.get('costPeriod') || 'year';
+  const draw = () => {
+    const v = c[per], total = v.parts + v.fee;
+    $('#costCard').innerHTML = '<h3 style="margin-bottom:8px">Cost</h3>' +
+      '<div class="chips" id="costPer">' + [['month', c.monthName], ['year', c.yearName], ['all', 'All time']].map(([k, t]) =>
+        '<span class="chip' + (per === k ? ' on' : '') + '" data-p="' + k + '">' + h(t) + '</span>').join('') + '</div>' +
+      '<div class="kv" style="margin-top:10px">' +
+      '<div>Spare parts</div><div style="text-align:right">' + rp(v.parts) + '</div>' +
+      '<div>Service fee</div><div style="text-align:right">' + rp(v.fee) + '</div>' +
+      '<div><b>Total</b></div><div style="text-align:right"><b>' + rp(total) + '</b></div></div>' +
+      '<div class="small muted" style="margin-top:6px">' + v.jobs + ' record' + (v.jobs === 1 ? '' : 's') + '. Spare parts at purchase price' +
+      (c.chargeable && c.markup ? ' (job completion charges +' + Math.round(c.markup * 100) + '%)' : '') + '.' +
+      (c.noPrice ? ' ' + c.noPrice + ' old part line' + (c.noPrice === 1 ? '' : 's') + ' without price not counted.' : '') + '</div>';
+    $('#costPer').onclick = e => { const k = e.target.dataset.p; if (!k) return; per = k; store.set('costPeriod', k); draw(); };
+  };
+  draw();
+}
 
 function histItem(x, i){
   const parts = x.parts.map(p => { return '- ' + partName(p.text) + ' x' + p.qty + (p.cond ? ' (' + p.cond + ')' : ''); }).join('\n');
