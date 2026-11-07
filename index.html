@@ -2025,10 +2025,10 @@ async function printInvoice(id, comp, toYm) {
 // - Internal Transport (Shuttle Bus & Buggy, sewa bulanan, Mekanik): Internal Transport Supervisor + Head of Transport
 // - External Transport (Taxi / Guest Mobility, Last Mile): External Transport Supervisor + Head of Transport
 // Tanda tangan vektor supervisor diisi nanti (svg), tampil otomatis di atas nama.
-const MECH_SUP_SVG = '';      // tanda tangan I Gde Agus Veryanto
+const MECH_SUP_SVG = '';      // tanda tangan I Gde Agus Veriyanto
 const EXT_SUP_SVG = '';       // tanda tangan Ni Putu Angie Friska Nanda
 const JC_SUP = {
-  internal: { name: 'I Gde Agus Veryanto', title: 'Internal Transport Supervisor', svg: () => MECH_SUP_SVG },
+  internal: { name: 'I Gde Agus Veriyanto', title: 'Internal Transport Supervisor', svg: () => MECH_SUP_SVG },
   external: { name: 'Ni Putu Angie Friska Nanda', title: 'External Transport Supervisor', svg: () => EXT_SUP_SVG }
 };
 const jcSupOf = kind => (kind === 'TAXI' || kind === 'LASTMILE') ? JC_SUP.external : JC_SUP.internal;
