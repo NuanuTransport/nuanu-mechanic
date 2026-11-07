@@ -157,7 +157,7 @@ table.items input{padding:6px 8px;font-size:13px}
   #print-area .mj-tbl .num{text-align:right;white-space:nowrap}
   #print-area .mj-sum{margin-top:4px}
   #print-area .mj-tbl tr.mj-total td{font-weight:700;border-top:1.5px solid #000;border-bottom:1px solid #ddd}
-  #print-area .mj-sign{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:22px;text-align:center;break-inside:avoid;page-break-inside:avoid}
+  #print-area .mj-sign{display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;margin-top:22px;text-align:center;break-inside:avoid;page-break-inside:avoid}
   #print-area .mj-line{border-top:1px solid #000;padding-top:3px;font-weight:600}
   #print-area .mj-photos{display:grid;grid-template-columns:1fr 1fr;gap:4mm}
   #print-area .mj-photos img{width:100%;height:62mm;object-fit:cover;border-radius:4px;break-inside:avoid;page-break-inside:avoid}
@@ -2005,11 +2005,7 @@ async function printInvoice(id, comp, toYm) {
           <table><tr><td>Bank</td><td>${esc(INV_BANK.bank)}</td></tr>
           <tr><td>Account No.</td><td><b>${esc(INV_BANK.no)}</b></td></tr>
           <tr><td>Account name</td><td>${esc(INV_BANK.name)}</td></tr></table></div>` : ''}
-        <div class="sign">
-          <div>Prepared by<br>${esc(INV_PREP_TITLE)}<div class="sig-box">${TTD_ADMIN_SVG}</div><div class="line">${esc(INV_PREP_NAME)}</div></div>
-          <div>Acknowledged by<br>${esc(INV_HEAD_TITLE)}<div class="sig-box">${TTD_HEAD_SVG}</div><div class="line">${esc(INV_HEAD_NAME)}</div></div>
-          <div>Received by<br>${esc(billTo)}<div class="sig-box"></div><div class="line">&nbsp;</div></div>
-        </div>
+        ${jcSign('TAXI', billTo)}
         <div class="p-foot">Printed ${esc(printedAt())} &middot; Data source: Nuanu Taxi Service</div>
       </div>`;
 
@@ -2025,10 +2021,17 @@ async function printInvoice(id, comp, toYm) {
 }
 
 // ---------- JOB COMPLETION SHUTTLE BUS / BUGGY & MEKANIK ----------
-// Penanda tangan JC Mekanik: Internal Transport Supervisor + requester. Shuttle Bus memakai penanda tangan yang sama dengan taxi.
-const MECH_SUP_NAME = 'I Gde Agus Veryanto';
-const MECH_SUP_TITLE = 'Internal Transport Supervisor';
-const MECH_SUP_SVG = '';      // tanda tangan vektor Agus Veryanto (diisi nanti, tampil otomatis di atas nama)
+// Approval Job Completion:
+// - Internal Transport (Shuttle Bus & Buggy, sewa bulanan, Mekanik): Internal Transport Supervisor + Head of Transport
+// - External Transport (Taxi / Guest Mobility, Last Mile): External Transport Supervisor + Head of Transport
+// Tanda tangan vektor supervisor diisi nanti (svg), tampil otomatis di atas nama.
+const MECH_SUP_SVG = '';      // tanda tangan I Gde Agus Veryanto
+const EXT_SUP_SVG = '';       // tanda tangan Ni Putu Angie Friska Nanda
+const JC_SUP = {
+  internal: { name: 'I Gde Agus Veryanto', title: 'Internal Transport Supervisor', svg: () => MECH_SUP_SVG },
+  external: { name: 'Ni Putu Angie Friska Nanda', title: 'External Transport Supervisor', svg: () => EXT_SUP_SVG }
+};
+const jcSupOf = kind => (kind === 'TAXI' || kind === 'LASTMILE') ? JC_SUP.external : JC_SUP.internal;
 const NOTE_WO = 'Please process the payment via cost transfer to the Transport Department. Work order details are based on Nuanu Work Order records.';
 const NOTE_MECH = 'Please process the payment via cost transfer to the Transport Department. Work details are based on Nuanu Mechanic records.';
 
@@ -2049,9 +2052,10 @@ function jcTop(title, sub, no, period) {
 }
 
 function jcSign(kind, receivedBy) {
+  const sup = jcSupOf(kind);
   return `<div class="sign">
-      <div>Prepared by<br>${esc(INV_PREP_TITLE)}<div class="sig-box">${TTD_ADMIN_SVG}</div><div class="line">${esc(INV_PREP_NAME)}</div></div>
-      <div>Acknowledged by<br>${esc(INV_HEAD_TITLE)}<div class="sig-box">${TTD_HEAD_SVG}</div><div class="line">${esc(INV_HEAD_NAME)}</div></div>
+      <div>Approved by<br>${esc(sup.title)}<div class="sig-box">${sup.svg()}</div><div class="line">${esc(sup.name)}</div></div>
+      <div>Approved by<br>${esc(INV_HEAD_TITLE)}<div class="sig-box">${TTD_HEAD_SVG}</div><div class="line">${esc(INV_HEAD_NAME)}</div></div>
       <div>Received by<br>${esc(receivedBy)}<div class="sig-box"></div><div class="line">&nbsp;</div></div>
     </div>`;
 }
@@ -2222,8 +2226,10 @@ function mechHead(title, rightHtml) {
 }
 
 function mechSign(requester, dept) {
+  const sup = JC_SUP.internal;
   return `<div class="mj-sign">
-    <div><b>${esc(MECH_SUP_TITLE)}</b><div class="sig-box">${MECH_SUP_SVG}</div><div class="mj-line">${esc(MECH_SUP_NAME)}</div></div>
+    <div><b>${esc(sup.title)}</b><div class="sig-box">${sup.svg()}</div><div class="mj-line">${esc(sup.name)}</div></div>
+    <div><b>${esc(INV_HEAD_TITLE)}</b><div class="sig-box">${TTD_HEAD_SVG}</div><div class="mj-line">${esc(INV_HEAD_NAME)}</div></div>
     <div><b>Requester</b><div class="sig-box"></div><div class="mj-line">${esc(requester || dept)}</div></div>
   </div>`;
 }
