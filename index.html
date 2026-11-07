@@ -1701,8 +1701,8 @@ async function delIncome(id) {
 // Bayar langsung (Transfer, Cash, dll) juga bisa, dipisah per pemesan (mis. direct order bulanan by transfer)
 // Direct order ditagih bulanan per pemesan (CUST), mis. Darya dan Maxim
 // Shuttle Bus & Buggy (WO) dan Mekanik (MECH): per departemen per bulan
-const isInvoiceRow = r => /^(TAXI\|\d{4}-\d{2}\|(BILL|DIRECT|CUST)|WO\|\d{4}-\d{2}|MECH\|\d{4}-\d{2})\|/.test(String(r.Sync_Key || ''));
-const isWorkJC = d => d && (d.kind === 'WO' || d.kind === 'MECH');
+const isInvoiceRow = r => /^(TAXI\|\d{4}-\d{2}\|(BILL|DIRECT|CUST)|WO\|\d{4}-\d{2}|MECH\|\d{4}-\d{2}|RENT\|\d{4}-\d{2})\|/.test(String(r.Sync_Key || ''));
+const isWorkJC = d => d && (d.kind === 'WO' || d.kind === 'MECH' || d.kind === 'RENT');
 
 // Rincian trip per tagihan disimpan sementara, dipakai untuk daftar company dan cetak invoice
 const INV_CACHE = {};
@@ -1762,6 +1762,11 @@ async function fillInvoiceCompany() {
   try {
     const d = await getInvoiceData(id);
     if (token !== INV_COMP_TOKEN) return;
+    if (d.kind === 'RENT') {
+      $('iv-comp-l').textContent = 'Sewa bulanan';
+      el.innerHTML = `<option value="">${esc(d.rows.length)} item sewa - ${esc(rp(d.total))}</option>`;
+      return;
+    }
     if (isWorkJC(d)) {
       // Shuttle Bus / Mekanik: rekap bulanan per departemen, atau JC per work order
       $('iv-comp-l').textContent = 'Rekap / per WO';
@@ -2053,6 +2058,7 @@ function jcSign(kind, receivedBy) {
 
 async function printWorkJC(all, woId) {
   if (all.kind === 'MECH') return printMechJC(all, woId);
+  if (all.kind === 'RENT') return printRentJC(all);
   const mech = false;
   const dept = all.pelanggan;
   const multi = !!all.periodeEnd;
@@ -2152,6 +2158,42 @@ async function printWorkJC(all, woId) {
   printAs(`Job Completion ${mech ? 'Mechanic' : 'Shuttle'} ${dept} - ${perEn}`);
 }
 
+// ---------- JOB COMPLETION SEWA BULANAN BUGGY & EV BIKE ----------
+const NOTE_RENT = 'Monthly electric vehicle rental (subscription). Please process the payment via cost transfer to the Transport Department.';
+
+async function printRentJC(all) {
+  const dept = all.pelanggan, rows = all.rows;
+  const multi = !!all.periodeEnd;
+  const perEn = multi ? `${fmtPeriodeEn(all.periode)} - ${fmtPeriodeEn(all.periodeEnd)}` : fmtPeriodeEn(all.periode);
+  const total = rows.reduce((a, r) => a + Number(r.Total || 0), 0);
+  const noDef = String(all.noInvoice || '').replace(/^INV\//, 'JC/');
+  const no = prompt(`Job Completion sewa ${dept} periode ${multi ? fmtPeriode(all.periode) + ' - ' + fmtPeriode(all.periodeEnd) : fmtPeriode(all.periode)}: ${rows.length} item, total ${rp(total)}.\n\nNomor Job Completion:`, noDef);
+  if (no === null) return;
+  const req = all.requester && all.requester.toUpperCase() !== String(dept).toUpperCase() ? all.requester : '';
+  $('print-area').innerHTML = `
+    ${jcTop('JOB COMPLETION', 'Electric Vehicle Rental &middot; Transport Department', no.trim() || noDef, perEn)}
+    <div class="inv-to">
+      <div class="muted-p">Bill to</div>
+      <div class="inv-to-name">${esc(dept)}</div>
+      ${req ? `<div class="muted-p">Requester: ${esc(req)}</div>` : ''}
+      <div class="muted-p">Monthly rental (subscription) of electric vehicles, ${esc(perEn)}</div>
+    </div>
+    <table class="inv-table">
+      <tr><th>No</th><th>Category</th><th>Description</th><th>Qty</th><th>Unit</th><th>Unit price / month</th><th>Total</th></tr>
+      ${rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.Kategori)}</td><td>${esc(r.Uraian)}</td><td class="num">${esc(r.Qty)}</td><td>${esc(r.Satuan)}</td><td class="num">${rp(r.Harga)}</td><td class="num">${rp(r.Total)}</td></tr>`).join('')}
+      <tr class="inv-total"><td colspan="6">Total Amount</td><td class="num">${rp(total)}</td></tr>
+    </table>
+    <div class="inv-end">
+      <div class="inv-words">Amount in words: <i>${esc(amountWords(total))}</i></div>
+      <div class="inv-note">${esc(NOTE_RENT)}</div>
+      ${jcSign('RENT', req || dept)}
+      <div class="p-foot">Printed ${esc(printedAt())} &middot; Data source: Bill of Quantities (EV rental)</div>
+    </div>`;
+  await waitImages();
+  setPageSize('A4');
+  printAs(`Job Completion Rental ${dept} - ${perEn}`);
+}
+
 // ---------- JOB COMPLETION MEKANIK (format Nuanu Mechanic) ----------
 const titleName = s => String(s || '').toLowerCase().replace(/\s*,\s*/g, ', ').replace(/\b\w/g, c => c.toUpperCase()).trim();
 
@@ -2181,8 +2223,8 @@ function mechHead(title, rightHtml) {
 
 function mechSign(requester, dept) {
   return `<div class="mj-sign">
-    <div><b>${esc(MECH_SUP_TITLE)}</b><div class="sig-box">${MECH_SUP_SVG}</div><div class="mj-line">${esc(MECH_SUP_NAME)}</div><div class="mj-sub">Transport / Date</div></div>
-    <div><b>Requester</b><div class="sig-box"></div><div class="mj-line">${esc(requester || dept)}</div><div class="mj-sub">${esc(dept)} / Date</div></div>
+    <div><b>${esc(MECH_SUP_TITLE)}</b><div class="sig-box">${MECH_SUP_SVG}</div><div class="mj-line">${esc(MECH_SUP_NAME)}</div></div>
+    <div><b>Requester</b><div class="sig-box"></div><div class="mj-line">${esc(requester || dept)}</div></div>
   </div>`;
 }
 
