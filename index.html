@@ -879,7 +879,28 @@ VIEWS.record = function(arg){
       '<a href="https://drive.google.com/file/d/' + h(id) + '/view" target="_blank"><img loading="lazy" src="https://drive.google.com/thumbnail?id=' + h(id) + '&sz=w800" onerror="this.style.display=\'none\'"></a>').join('') +
       '</div><div class="small muted" style="margin-top:6px">Tap a photo to open it full size.</div></div>';
   }
+  // add more photos to this saved record (they also go to the Telegram group)
+  const last = (store.get('lastMechs') || [])[0] || '';
+  html += '<div class="card" id="morePh"><button class="btn alt" id="mp_open">+ Add more photos</button>' +
+    '<div id="mp_form" class="hide"><h3 style="margin-top:12px">Add more photos</h3><div id="mp_pick"></div>' +
+    '<label>Added by</label><select id="mp_by"><option value="">-</option>' +
+    BOOT.mechanics.map(n => '<option' + (n === last ? ' selected' : '') + '>' + h(n) + '</option>').join('') + '</select>' +
+    pinField() + '<button class="btn" style="margin-top:12px" id="mp_save">Save photos</button>' +
+    '<div class="small muted" style="margin-top:6px">Up to ' + BOOT.config.maxPhotos + ' photos at a time. They are added to this record and sent to the Telegram group.</div></div></div>';
   app().innerHTML = html;
+  let picker = null;
+  $('#mp_open').onclick = () => { $('#mp_open').classList.add('hide'); $('#mp_form').classList.remove('hide'); picker = photoPicker($('#mp_pick')); };
+  $('#mp_save').onclick = async () => {
+    const photos = picker ? picker.get() : [];
+    if (!photos.length) return toast('Take or choose at least one photo');
+    const b = $('#mp_save'); b.disabled = true; b.textContent = 'Uploading ' + photos.length + ' photo' + (photos.length > 1 ? 's' : '') + '...';
+    try {
+      const r = await api('apiAddPhotos', {pin: readPin(), kind: x.kind, id: x.id, photos: photos, by: $('#mp_by').value});
+      x.photos = r.photos;
+      toast(r.added + ' photo' + (r.added > 1 ? 's' : '') + ' added' + (r.warnings && r.warnings.length ? '. ' + r.warnings[0] : ''), r.warnings && r.warnings.length ? 6000 : 2500);
+      VIEWS.record(arg); window.scrollTo(0, 0);
+    } catch(e){ toast(e.message, 6000); b.disabled = false; b.textContent = 'Save photos'; }
+  };
 };
 
 // ---------- add vehicle / area (admin)
