@@ -852,7 +852,7 @@ VIEWS.jobs = async function(){
       j.fees.map(f => '<tr><td>' + h(f.name) + '</td><td class="num">' + f.qty + '</td><td class="num">' + money(f.price) + '</td><td class="num">' + money(f.total) + '</td></tr>').join('') + '</table>' : '<div class="muted">None</div>') +
     '<table class="tbl" style="margin-top:8px"><tr><td>Spare parts</td><td class="num">' + money(j.partsTotal) + '</td></tr><tr><td>Service fee</td><td class="num">' + money(j.feeTotal) + '</td></tr>' +
     '<tr class="tot"><td>Total</td><td class="num">' + money(j.total) + '</td></tr></table>' +
-    '<div class="sign"><div><div class="ttl">Transport Supervisor</div><div class="box"></div><div class="ln">I Gde Agus Veriyanto</div><div class="sub">Transport / Date</div></div>' +
+    '<div class="sign"><div><div class="ttl">Transport Supervisor</div><div class="box"></div><div class="ln">I Gde Agus Veryanto</div><div class="sub">Transport / Date</div></div>' +
     '<div><div class="ttl">Requester</div><div class="box"></div><div class="ln">' + (h(j.requestedBy) || '&nbsp;') + '</div><div class="sub">' + h(j.dept) + ' / Date</div></div></div>' +
     (j.photos.length ? '<h4>Photos</h4><div class="ph">' + j.photos.map(id => '<img loading="eager" src="https://drive.google.com/thumbnail?id=' + h(id) + '&sz=w800" onerror="this.style.display=\'none\'">').join('') + '</div>' : '') + '</div>';
   const csv = () => {
@@ -1132,7 +1132,7 @@ VIEWS.addPart = async function(arg){
 const DR = {
   MARKUP: 0.30,                                   // spare parts = purchase price + 30% (same as Job Completion)
   HEAD: 'Dimas Destrian Caesar',                  // Head of Transport Department
-  SUPERVISOR: 'I Gde Agus Veriyanto',              // Internal Supervisor = Service Provider
+  SUPERVISOR: 'I Gde Agus Veriyanto',            // Internal Supervisor = Service Provider
   SIGN: '',                                       // Service Provider signature (image data URL); empty = sign by hand
   ADDRESS: ['Transport Department', 'Jl. Galiran, Desa Beraban, Kediri, Tabanan', 'mechanic.admin@nuanu.com'],
   PLACE: 'Tabanan',
@@ -1253,6 +1253,7 @@ VIEWS.defect = async function(){
     vehicle: '', vehicleType: '', requester: '', subtitle: 'Details of defects found during inspection',
     items: [], notes: 'Notes:\n1. Prices may change depending on online or offline orders, taxes and delivery charges.\n2. Completion time may vary depending on the arrival of parts and any issues found during the repair.', saved: null});
   let B = store.get('drDraft') || blank();
+  B.items.forEach(x => { const f = (BOOT.fees || []).find(f => f.name === x.desc); if (f && DR_FEE_EN[f.id]) x.desc = DR_FEE_EN[f.id]; });
   let photos = B.items.map(() => []);     // photos stay in memory only (too big for the draft)
   let sign = '';                          // Service Provider signature, kept privately in Drive
   const save = () => { try { store.set('drDraft', B); } catch(e){} };
@@ -1332,8 +1333,24 @@ VIEWS.defect = async function(){
     const files = Array.from(e.target.files || []).slice(0, 2);
     try { photos[+i] = await Promise.all(files.map(f => drResize(f, 700))); } catch(err){ toast('Could not read the photo'); }
     drawItems(); refresh(); };
+  $('#d_items').addEventListener('focusout', e => { const t = e.target; if (t.dataset.k === 'desc') translateLine(B.items[+t.dataset.i]); });
   $('#d_items').onclick = e => { const i = e.target.dataset.rm; if (i == null) return; B.items.splice(+i, 1); photos.splice(+i, 1); save(); drawItems(); refresh(); };
-  const addItem = x => { B.items.push(Object.assign({desc: '', qty: 1, price: 0, src: ''}, x)); photos.push([]); save(); drawItems(); refresh(); };
+  const addItem = x => { B.items.push(Object.assign({desc: '', qty: 1, price: 0, src: ''}, x)); photos.push([]); save(); drawItems(); refresh(); return B.items[B.items.length - 1]; };
+  // English only: Google Translate through Apps Script (English text stays the same)
+  const toEnglish = async list => { try { return await api('apiTranslate', ADMIN_PIN, list); } catch(e){ return list; } };
+  const translateLine = async line => {
+    if (!line || !line.desc) return;
+    const before = line.desc, [en] = await toEnglish([before]);
+    if (en && en !== before && line.desc === before) { line.desc = en; save(); drawItems(); refresh(); }
+  };
+  const englishAll = async () => {
+    const fields = ['subtitle', 'notes', 'category', 'workStation'];
+    const list = B.items.map(x => x.desc).concat(fields.map(k => B[k] || ''));
+    const en = await toEnglish(list);
+    B.items.forEach((x, i) => { if (en[i]) x.desc = en[i]; });
+    fields.forEach((k, i) => { const v = en[B.items.length + i]; if (v) { B[k] = v; const el = {subtitle: 'd_sub', notes: 'd_notes', category: 'd_cat', workStation: 'd_ws'}[k]; if ($('#' + el)) $('#' + el).value = v; } });
+    save(); drawItems(); refresh();
+  };
 
   $('#d_pq').oninput = () => {
     const t = $('#d_pq').value.trim().toLowerCase(), res = $('#d_pres');
@@ -1347,10 +1364,11 @@ VIEWS.defect = async function(){
     const p = partById(d.dataset.add); $('#d_pres').classList.add('hide'); $('#d_pq').value = '';
     let cost = Number(p.price) || 0;
     if (!cost) { try { cost = Number((await api('apiGetPart', p.id)).part.price) || 0; } catch(err){ toast(err.message); } }
-    addItem({desc: p.name, price: Math.round(cost * (1 + DR.MARKUP)), src: p.id + (cost ? ' | ' + rp(cost) + ' + ' + Math.round(DR.MARKUP * 100) + '%' : ' | no price in the list, type it')});
+    translateLine(addItem({desc: p.name, price: Math.round(cost * (1 + DR.MARKUP)), src: p.id + ' ' + p.name + (cost ? ' | ' + rp(cost) + ' + ' + Math.round(DR.MARKUP * 100) + '%' : ' | no price in the list, type it')}));
   };
   $('#d_fsel').onchange = e => { const f = feeList.find(x => x.id === e.target.value); e.target.value = ''; if (!f) return;
-    addItem({desc: DR_FEE_EN[f.id] || f.name, price: f.price || 0, src: f.id + ' ' + f.name + (f.price ? ' | service fee list' : ' | type the price')}); };
+    const line = addItem({desc: DR_FEE_EN[f.id] || f.name, price: f.price || 0, src: f.id + ' ' + f.name + (f.price ? ' | service fee list' : ' | type the price')});
+    if (!DR_FEE_EN[f.id]) translateLine(line); };
   $('#d_blank').onclick = () => addItem({});
 
   const loadList = async () => {
@@ -1369,9 +1387,11 @@ VIEWS.defect = async function(){
     const items = B.items.filter(x => x.desc.trim());
     if (!items.length) return toast('Add at least one item');
     const noPrice = items.find(x => !(Number(x.price) > 0)); if (noPrice) return toast('Type the price for: ' + noPrice.desc);
-    const b = $('#d_save'); b.disabled = true; b.textContent = 'Making PDF...';
+    const b = $('#d_save'); b.disabled = true; b.textContent = 'Translating to English...';
     let holder = null;
     try {
+      await englishAll();
+      b.textContent = 'Making PDF...';
       await drLoadPdfLib();
       if (document.fonts && document.fonts.ready) await document.fonts.ready;
       holder = document.createElement('div');   // behind the page, at the top-left (html2canvas cannot draw elements far off-screen)
@@ -1397,7 +1417,7 @@ VIEWS.defect = async function(){
     if (holder) holder.remove();
     b.disabled = false; b.textContent = 'Save PDF';
   };
-  $('#d_prev').onclick = () => { const p = $('#d_preview'); p.classList.toggle('hide'); $('#d_prev').textContent = p.classList.contains('hide') ? 'Preview' : 'Hide preview'; refresh(); if (!p.classList.contains('hide')) p.scrollIntoView({behavior: 'smooth'}); };
+  $('#d_prev').onclick = async () => { const p = $('#d_preview'); if (p.classList.contains('hide')) { $('#d_prev').textContent = 'Translating...'; await englishAll(); } p.classList.toggle('hide'); $('#d_prev').textContent = p.classList.contains('hide') ? 'Preview' : 'Hide preview'; refresh(); if (!p.classList.contains('hide')) p.scrollIntoView({behavior: 'smooth'}); };
   $('#d_new').onclick = () => { if (!confirm('Start a new document? The current one is cleared from this phone.')) return; B = blank(); photos = []; save(); fill(); };
 
   const fill = () => {
