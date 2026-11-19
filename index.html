@@ -848,7 +848,7 @@ VIEWS.jobs = async function(){
       j.fees.map(f => '<tr><td>' + h(f.name) + '</td><td class="num">' + f.qty + '</td><td class="num">' + money(f.price) + '</td><td class="num">' + money(f.total) + '</td></tr>').join('') + '</table>' : '<div class="muted">None</div>') +
     '<table class="tbl" style="margin-top:8px"><tr><td>Spare parts</td><td class="num">' + money(j.partsTotal) + '</td></tr><tr><td>Service fee</td><td class="num">' + money(j.feeTotal) + '</td></tr>' +
     '<tr class="tot"><td>Total</td><td class="num">' + money(j.total) + '</td></tr></table>' +
-    '<div class="sign"><div><div class="ttl">Transport Supervisor</div><div class="box"></div><div class="ln">I Gde Agus Veryanto</div><div class="sub">Transport / Date</div></div>' +
+    '<div class="sign"><div><div class="ttl">Transport Supervisor</div><div class="box"></div><div class="ln">I Gde Agus Veriyanto</div><div class="sub">Transport / Date</div></div>' +
     '<div><div class="ttl">Requester</div><div class="box"></div><div class="ln">' + (h(j.requestedBy) || '&nbsp;') + '</div><div class="sub">' + h(j.dept) + ' / Date</div></div></div>' +
     (j.photos.length ? '<h4>Photos</h4><div class="ph">' + j.photos.map(id => '<img loading="eager" src="https://drive.google.com/thumbnail?id=' + h(id) + '&sz=w800" onerror="this.style.display=\'none\'">').join('') + '</div>' : '') + '</div>';
   const csv = () => {
@@ -1128,7 +1128,7 @@ VIEWS.addPart = async function(arg){
 const DR = {
   MARKUP: 0.30,                                   // spare parts = purchase price + 30% (same as Job Completion)
   HEAD: 'Dimas Destrian Caesar',                  // Head of Transport Department
-  SUPERVISOR: 'I Gde Agus Veryanto',              // Internal Supervisor = Service Provider
+  SUPERVISOR: 'I Gde Agus Veriyanto',              // Internal Supervisor = Service Provider
   SIGN: '',                                       // Service Provider signature (image data URL); empty = sign by hand
   ADDRESS: ['Transport Department', 'Jl. Galiran, Desa Beraban, Kediri, Tabanan', 'mechanic.admin@nuanu.com'],
   PLACE: 'Tabanan',
