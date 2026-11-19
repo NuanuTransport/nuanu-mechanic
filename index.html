@@ -852,7 +852,7 @@ VIEWS.jobs = async function(){
       j.fees.map(f => '<tr><td>' + h(f.name) + '</td><td class="num">' + f.qty + '</td><td class="num">' + money(f.price) + '</td><td class="num">' + money(f.total) + '</td></tr>').join('') + '</table>' : '<div class="muted">None</div>') +
     '<table class="tbl" style="margin-top:8px"><tr><td>Spare parts</td><td class="num">' + money(j.partsTotal) + '</td></tr><tr><td>Service fee</td><td class="num">' + money(j.feeTotal) + '</td></tr>' +
     '<tr class="tot"><td>Total</td><td class="num">' + money(j.total) + '</td></tr></table>' +
-    '<div class="sign"><div><div class="ttl">Transport Supervisor</div><div class="box"></div><div class="ln">I Gde Agus Veryanto</div><div class="sub">Transport / Date</div></div>' +
+    '<div class="sign"><div><div class="ttl">Transport Supervisor</div><div class="box"></div><div class="ln">I Gde Agus Veriyanto</div><div class="sub">Transport / Date</div></div>' +
     '<div><div class="ttl">Requester</div><div class="box"></div><div class="ln">' + (h(j.requestedBy) || '&nbsp;') + '</div><div class="sub">' + h(j.dept) + ' / Date</div></div></div>' +
     (j.photos.length ? '<h4>Photos</h4><div class="ph">' + j.photos.map(id => '<img loading="eager" src="https://drive.google.com/thumbnail?id=' + h(id) + '&sz=w800" onerror="this.style.display=\'none\'">').join('') + '</div>' : '') + '</div>';
   const csv = () => {
@@ -1132,7 +1132,7 @@ VIEWS.addPart = async function(arg){
 const DR = {
   MARKUP: 0.30,                                   // spare parts = purchase price + 30% (same as Job Completion)
   HEAD: 'Dimas Destrian Caesar',                  // Head of Transport Department
-  SUPERVISOR: 'I Gde Agus Veryanto',              // Internal Supervisor = Service Provider
+  SUPERVISOR: 'I Gde Agus Veriyanto',              // Internal Supervisor = Service Provider
   SIGN: '',                                       // Service Provider signature (image data URL); empty = sign by hand
   ADDRESS: ['Transport Department', 'Jl. Galiran, Desa Beraban, Kediri, Tabanan', 'mechanic.admin@nuanu.com'],
   PLACE: 'Tabanan',
@@ -1187,13 +1187,7 @@ function drDocHtml(B, a, photos, sign){
     '<div class="jh"><div><img src="' + DR.LOGO + '"><div class="co">' + DR.ADDRESS.map(h).join('<br>') + '</div></div>' +
       '<div class="ttl"><b>VEHICLE DEFECT RECTIFICATION WORKS</b><div class="no">' + h(B.no) + '</div>' +
       '<div class="co">' + h(DR.PLACE) + ', ' + h(drDate(B.date)) + '</div></div></div>' +
-    '<table class="to"><tr><td>To</td><td>: ' + h(B.requester || '-') + '</td></tr>' +
-      (B.attention ? '<tr><td>Attention</td><td>: ' + h(B.attention) + '</td></tr>' : '') +
-      '<tr><td>From</td><td>: Transport Department - Mechanic</td></tr>' +
-      '<tr><td>Subject</td><td>: <b>Vehicle Defect Rectification - ' + h(type) + ' ' + h(B.vehicle) + '</b></td></tr></table>' +
-    '<p class="para">Dear ' + h(B.attention || ('Sir/Madam of ' + (B.requester || 'the requesting department'))) + ',</p>' +
-    '<p class="para">Following the inspection of vehicle <b>' + h(B.vehicle) + '</b> (' + h(type.charAt(0) + type.slice(1).toLowerCase()) + ') at ' + h(B.workStation || 'our workshop') + ' on ' + h(drDate(B.date)) +
-      ', we would like to inform you of the defects found and the proposed rectification works. ' + (String(B.subtitle || '').trim() ? h(String(B.subtitle).trim().replace(/\.+$/, '')) + '. ' : '') + 'The details and estimated costs are as follows:</p>' +
+    '<div class="veh">' + h(type) + ' &middot; ' + h(B.vehicle) + '</div><div class="sub">' + h(B.subtitle) + '</div>' +
     '<div class="meta">' +
       '<div><span>Work station</span><b>' + h(B.workStation || '-') + '</b></div>' +
       '<div><span>Category</span><b>' + h(B.category || '-') + '</b></div>' +
@@ -1201,15 +1195,13 @@ function drDocHtml(B, a, photos, sign){
       '<div><span>Head of Transport Department</span><b>' + h(DR.HEAD) + '</b></div>' +
       '<div><span>Internal Supervisor</span><b>' + h(DR.SUPERVISOR) + '</b></div>' +
       '<div><span>Requester</span><b>' + h(B.requester || '-') + '</b></div></div>' +
-    '<h4>Details of defects and estimated costs</h4>' +
+    '<h4>Details of defects and rectification</h4>' +
     '<table><tr><th class="ctr">No</th><th>Description</th><th class="ctr">Photos</th><th class="ctr">Qty</th><th class="num">Price</th><th class="num">Total</th></tr>' + rows +
       '<tr class="tot"><td></td><td colspan="3">Total</td><td></td><td class="num">Rp ' + drMoney(total) + '</td></tr></table>' +
     (B.notes ? '<div class="note">' + h(B.notes) + '</div>' : '') +
-    '<p class="para" style="margin-top:12px">We kindly ask for your review and approval so that the rectification works can be scheduled. Please sign below and return a copy to the Transport Department. Should you have any questions, please contact us at ' + h(DR.ADDRESS[2]) + '.</p>' +
-    '<p class="para">Thank you for your cooperation.</p>' +
-    '<div class="sign"><div><div class="t">Prepared by (Service Provider)</div><div class="s">Internal Supervisor</div><div class="box">' + (sign ? '<img src="' + sign + '">' : '') + '</div>' +
+    '<div class="sign"><div><div class="t">Service Provider</div><div class="s">Internal Supervisor</div><div class="box">' + (sign ? '<img src="' + sign + '">' : '') + '</div>' +
       '<div class="ln">' + h(DR.SUPERVISOR) + '</div><div class="s">Transport / ' + h(drShort(B.date)) + '</div></div>' +
-      '<div><div class="t">Acknowledged and approved by</div><div class="s">Requester - ' + h(B.requester || '') + '</div><div class="box"></div><div class="ln">' + (h(B.attention) || '&nbsp;') + '</div><div class="s">Name / Signature / Date</div></div></div>' +
+      '<div><div class="t">Requester</div><div class="s">' + (h(B.requester) || '&nbsp;') + '</div><div class="box"></div><div class="ln">&nbsp;</div><div class="s">Name / Date</div></div></div>' +
     '</div>';
 }
 
@@ -1258,7 +1250,7 @@ VIEWS.defect = async function(){
   const today = BOOT.config.today;
   const stamp = () => { const d = new Date(); return 'DR-' + today.replace(/-/g, '') + '-' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0'); };
   const blank = () => ({no: stamp(), date: today, workStation: store.get('drStation') || 'Nuanu Parking 3', category: 'Damage Notice & Repair',
-    vehicle: '', vehicleType: '', requester: '', attention: '', subtitle: 'The inspection was carried out after the vehicle was returned',
+    vehicle: '', vehicleType: '', requester: '', subtitle: 'Details of defects found during inspection',
     items: [], notes: 'Notes:\n1. Prices may change depending on online or offline orders, taxes and delivery charges.\n2. Completion time may vary depending on the arrival of parts and any issues found during the repair.', saved: null});
   let B = store.get('drDraft') || blank();
   let photos = B.items.map(() => []);     // photos stay in memory only (too big for the draft)
@@ -1275,10 +1267,9 @@ VIEWS.defect = async function(){
     '<label>Vehicle</label><input id="d_veh" list="d_assets" placeholder="Type or pick, e.g. LV6-004"><datalist id="d_assets">' +
       BOOT.assets.filter(a => a.cls !== 'Area').map(a => '<option value="' + h(a.id) + '">' + h([a.type, a.dept].filter(v => v && v !== '-').join(' | ')) + '</option>').join('') + '</datalist>' +
     '<label>Vehicle type on the document</label><input id="d_vtype" placeholder="e.g. Buggy 6 Seat (filled from the vehicle)">' +
-    '<div class="grid2"><div><label>To (department / company)</label><input id="d_req" placeholder="e.g. NRE"></div><div><label>Attention (name)</label><input id="d_att" placeholder="Optional, e.g. Mr. Made"></div></div>' +
-    '<label>Work station</label><input id="d_ws">' +
+    '<div class="grid2"><div><label>Requester</label><input id="d_req" placeholder="e.g. NRE"></div><div><label>Work station</label><input id="d_ws"></div></div>' +
     '<label>Category</label><input id="d_cat">' +
-    '<label>Reason for the inspection (one sentence, in English)</label><input id="d_sub" placeholder="e.g. The inspection was carried out after the rental period ended"></div>' +
+    '<label>Line under the vehicle (in English)</label><input id="d_sub" placeholder="e.g. Details of damage found during inspection after the rental period"></div>' +
     '<div class="card"><h3>Items</h3>' +
       '<input id="d_pq" placeholder="Add spare part (search name or ID) - price +' + Math.round(DR.MARKUP * 100) + '%"><div id="d_pres" class="list hide" style="margin-top:6px"></div>' +
       '<select id="d_fsel" style="margin-top:8px"><option value="">Add service / labour...</option>' +
@@ -1410,7 +1401,7 @@ VIEWS.defect = async function(){
   $('#d_new').onclick = () => { if (!confirm('Start a new document? The current one is cleared from this phone.')) return; B = blank(); photos = []; save(); fill(); };
 
   const fill = () => {
-    bind('d_no', 'no'); bind('d_date', 'date'); bind('d_veh', 'vehicle', vehChanged); bind('d_vtype', 'vehicleType'); bind('d_req', 'requester'); bind('d_att', 'attention');
+    bind('d_no', 'no'); bind('d_date', 'date'); bind('d_veh', 'vehicle', vehChanged); bind('d_vtype', 'vehicleType'); bind('d_req', 'requester');
     bind('d_ws', 'workStation'); bind('d_cat', 'category'); bind('d_sub', 'subtitle'); bind('d_notes', 'notes');
     drawItems(); showDone(); drawSign(); refresh();
   };
