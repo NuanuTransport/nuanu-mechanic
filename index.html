@@ -5,6 +5,8 @@
 <meta name="theme-color" content="#0f5e4a">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <style>
@@ -112,6 +114,37 @@
   .jc .boqt .sec td{background:#eef4f1;font-weight:700;color:#0f5e4a}
   .jc .meta{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:3px 10px;font-size:13px;margin-bottom:6px}
   .jc .meta b{color:#5d6b76;font-weight:600}
+  .drdoc{width:718px;background:#fff;color:#14212b;font-family:'Poppins',Arial,sans-serif;font-size:11px;line-height:1.45;padding:2px}
+  .drdoc .jh{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2px solid #0f5e4a;padding-bottom:10px}
+  .drdoc .jh img{width:132px;display:block;margin-bottom:6px}
+  .drdoc .co{font-size:10px;color:#5d6b76;line-height:1.5}
+  .drdoc .ttl{text-align:right}
+  .drdoc .ttl b{display:block;font-size:15px;font-weight:700;letter-spacing:.3px;color:#14212b}
+  .drdoc .ttl .no{font-size:11px;font-weight:600;color:#0f5e4a;margin-top:2px}
+  .drdoc .veh{margin-top:14px;font-size:14px;font-weight:700;letter-spacing:.2px}
+  .drdoc .sub{color:#5d6b76}
+  .drdoc .meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px}
+  .drdoc .meta div{background:#f3f7f5;border-radius:8px;padding:7px 9px}
+  .drdoc .meta span{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#5d6b76}
+  .drdoc .meta b{font-weight:600;font-size:11px}
+  .drdoc h4{margin:16px 0 6px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:#0f5e4a}
+  .drdoc table{width:100%;border-collapse:collapse}
+  .drdoc th{background:#0f5e4a;color:#fff;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.4px;padding:7px 6px;text-align:left}
+  .drdoc td{border-bottom:1px solid #dde3e8;padding:7px 6px;vertical-align:middle}
+  .drdoc tr{break-inside:avoid;page-break-inside:avoid}
+  .drdoc .num{text-align:right;white-space:nowrap}
+  .drdoc .ctr{text-align:center}
+  .drdoc td img{width:132px;height:99px;object-fit:cover;border-radius:6px;border:1px solid #dde3e8;display:block;margin:2px auto}
+  .drdoc .tot td{border-bottom:0;border-top:2px solid #14212b;font-weight:700;font-size:12px;padding-top:9px}
+  .drdoc .note{margin-top:14px;font-size:10px;color:#5d6b76;white-space:pre-wrap;border-left:3px solid #0f5e4a;padding-left:9px}
+  .drdoc .sign{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:26px;break-inside:avoid;page-break-inside:avoid}
+  .drdoc .sign>div{text-align:center}
+  .drdoc .sign .t{font-weight:600}
+  .drdoc .sign .box{height:70px;display:flex;align-items:flex-end;justify-content:center}
+  .drdoc .sign .box img{max-height:66px;max-width:200px}
+  .drdoc .sign .ln{border-top:1px solid #14212b;padding-top:4px;font-weight:600;min-height:16px}
+  .drdoc .sign .s{font-size:10px;color:#5d6b76}
+  .drwrap{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:14px;overflow:hidden}
   .boq-line{border:1px solid var(--line);border-radius:10px;padding:8px;margin-top:8px}
   .hist.tap{cursor:pointer;border-radius:0 8px 8px 0}
   .hist.tap:active{background:#f6f8f9}
@@ -1095,7 +1128,8 @@ VIEWS.addPart = async function(arg){
 const DR = {
   MARKUP: 0.30,                                   // spare parts = purchase price + 30% (same as Job Completion)
   HEAD: 'Dimas Destrian Caesar',                  // Head of Transport Department
-  SUPERVISOR: 'I Dewa Gede Windhu Wicaksana',     // Supervisor of Mechanic = Service Provider
+  SUPERVISOR: 'I Gde Agus Veryanto',              // Internal Supervisor = Service Provider
+  SIGN: '',                                       // Service Provider signature (image data URL); empty = sign by hand
   ADDRESS: ['Transport Department', 'Jl. Galiran, Desa Beraban, Kediri, Tabanan', 'mechanic.admin@nuanu.com'],
   PLACE: 'Tabanan',
   LOGO: 'data:image/png;base64,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'
@@ -1118,40 +1152,76 @@ function drResize(file, max){
   });
 }
 
-/** The document. Plain tables and inline styles, so the phone preview and the Google PDF look the same. */
-function drDocHtml(B, a, photos){
-  const td = 'border:1px solid #000;padding:5px;font-size:11px;vertical-align:middle;';
+/** The document, Job Completion style, Poppins. The same element is shown as preview and turned into the PDF. */
+function drDocHtml(B, a, photos, sign){
   const items = B.items.filter(x => x.desc.trim());
   const total = items.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
   const type = (B.vehicleType || (a && a.type !== '-' ? a.type : '') || 'Vehicle').toUpperCase();
+  const period = B.date ? DR_MONTHS[new Date(B.date + 'T00:00:00').getMonth()] + ' ' + B.date.slice(0, 4) : '';
   const rows = items.map((x, n) => { const ph = (photos[B.items.indexOf(x)] || []).filter(Boolean);
-    return '<tr><td style="' + td + 'text-align:center;width:24px">' + (n + 1) + '</td>' +
-      '<td style="' + td + 'width:150px">' + h(x.desc) + '</td>' +
-      '<td style="' + td + 'text-align:center;width:150px">' + (ph.length ? ph.map(p => '<img src="' + p + '" style="width:140px;max-height:105px;margin:2px 0">').join('<br>') : '') + '</td>' +
-      '<td style="' + td + 'text-align:center;width:34px">' + h(x.qty) + '</td>' +
-      '<td style="' + td + 'width:95px;text-align:right;white-space:nowrap">Rp ' + drMoney(x.price) + '</td>' +
-      '<td style="' + td + 'width:105px;text-align:right;white-space:nowrap">Rp ' + drMoney((Number(x.qty) || 0) * (Number(x.price) || 0)) + '</td></tr>'; }).join('');
-  const lbl = 'font-size:11px;font-weight:bold;';
-  return '<div style="font-family:Arial,Helvetica,sans-serif;color:#000;font-size:11px;line-height:1.35">' +
-    '<table style="width:100%;border-collapse:collapse"><tr>' +
-      '<td style="vertical-align:top;width:55%"><img src="' + DR.LOGO + '" style="width:150px"><br>' + DR.ADDRESS.map(h).join('<br>') + '</td>' +
-      '<td style="vertical-align:top">' + h(DR.PLACE) + ', ' + h(drDate(B.date)) + '<br><br>Work Station : ' + h(B.workStation) +
-        '<br>Category : ' + h(B.category) + '<br>Period : ' + h(B.date ? DR_MONTHS[new Date(B.date + 'T00:00:00').getMonth()] + ' ' + B.date.slice(0, 4) : '') + '</td></tr></table>' +
-    '<div style="margin-top:14px;font-size:13px;font-weight:bold">' + h(type) + ' - ' + h(B.vehicle) + '</div>' +
-    '<div>' + h(B.subtitle) + '</div>' +
-    '<table style="width:100%;border-collapse:collapse;margin-top:12px"><tr>' +
-      '<td style="width:55%;vertical-align:top"><span style="' + lbl + '">Head of Transport Department</span><br>' + h(DR.HEAD) + '</td>' +
-      '<td style="vertical-align:top"><span style="' + lbl + '">Requester</span><br>' + h(B.requester || '-') + '</td></tr>' +
-      '<tr><td style="vertical-align:top;padding-top:8px"><span style="' + lbl + '">Supervisor of Mechanic</span><br>' + h(DR.SUPERVISOR) + '</td><td></td></tr></table>' +
-    '<table style="width:100%;border-collapse:collapse;margin-top:12px"><tr>' +
-      ['No.', 'Description', 'Photos', 'QTY', 'Price', 'Total'].map(t => '<td style="' + td + 'text-align:center;font-weight:bold">' + t + '</td>').join('') + '</tr>' + rows +
-      '<tr><td colspan="4" style="padding:5px"></td><td style="padding:5px;font-size:11px;font-weight:bold">Total</td>' +
-      '<td style="padding:5px;font-size:11px;font-weight:bold;text-align:right;white-space:nowrap">Rp ' + drMoney(total) + '</td></tr></table>' +
-    (B.notes ? '<div style="margin-top:10px;white-space:pre-wrap">' + h(B.notes) + '</div>' : '') +
-    '<table style="width:100%;border-collapse:collapse;margin-top:22px;page-break-inside:avoid"><tr>' +
-      '<td style="width:50%;text-align:center;vertical-align:top">Service Provider<div style="height:62px"></div>' + h(DR.SUPERVISOR) + '</td>' +
-      '<td style="text-align:center;vertical-align:top">Requester<div style="height:62px"></div>' + (B.requester ? h(B.requester) : '___________________________') + '</td></tr></table>' +
+    return '<tr><td class="ctr" style="width:26px">' + (n + 1) + '</td><td>' + h(x.desc) + '</td>' +
+      '<td class="ctr" style="width:150px">' + ph.map(p => '<img src="' + p + '">').join('') + '</td>' +
+      '<td class="ctr" style="width:36px">' + h(x.qty) + '</td>' +
+      '<td class="num" style="width:100px">Rp ' + drMoney(x.price) + '</td>' +
+      '<td class="num" style="width:108px">Rp ' + drMoney((Number(x.qty) || 0) * (Number(x.price) || 0)) + '</td></tr>'; }).join('');
+  return '<div class="drdoc">' +
+    '<div class="jh"><div><img src="' + DR.LOGO + '"><div class="co">' + DR.ADDRESS.map(h).join('<br>') + '</div></div>' +
+      '<div class="ttl"><b>VEHICLE DEFECT RECTIFICATION WORKS</b><div class="no">' + h(B.no) + '</div>' +
+      '<div class="co">' + h(DR.PLACE) + ', ' + h(drDate(B.date)) + '</div></div></div>' +
+    '<div class="veh">' + h(type) + ' &middot; ' + h(B.vehicle) + '</div><div class="sub">' + h(B.subtitle) + '</div>' +
+    '<div class="meta">' +
+      '<div><span>Work station</span><b>' + h(B.workStation || '-') + '</b></div>' +
+      '<div><span>Category</span><b>' + h(B.category || '-') + '</b></div>' +
+      '<div><span>Period</span><b>' + h(period) + '</b></div>' +
+      '<div><span>Head of Transport Department</span><b>' + h(DR.HEAD) + '</b></div>' +
+      '<div><span>Internal Supervisor</span><b>' + h(DR.SUPERVISOR) + '</b></div>' +
+      '<div><span>Requester</span><b>' + h(B.requester || '-') + '</b></div></div>' +
+    '<h4>Details of defects and rectification</h4>' +
+    '<table><tr><th class="ctr">No</th><th>Description</th><th class="ctr">Photos</th><th class="ctr">Qty</th><th class="num">Price</th><th class="num">Total</th></tr>' + rows +
+      '<tr class="tot"><td></td><td colspan="3">Total</td><td></td><td class="num">Rp ' + drMoney(total) + '</td></tr></table>' +
+    (B.notes ? '<div class="note">' + h(B.notes) + '</div>' : '') +
+    '<div class="sign"><div><div class="t">Service Provider</div><div class="s">Internal Supervisor</div><div class="box">' + (sign ? '<img src="' + sign + '">' : '') + '</div>' +
+      '<div class="ln">' + h(DR.SUPERVISOR) + '</div><div class="s">Transport / ' + h(drShort(B.date)) + '</div></div>' +
+      '<div><div class="t">Requester</div><div class="s">&nbsp;</div><div class="box"></div><div class="ln">' + (h(B.requester) || '&nbsp;') + '</div><div class="s">Name / Date</div></div></div>' +
     '</div>';
+}
+
+/** Loads the PDF maker once (html2pdf from cdnjs). */
+let drPdfLib = null;
+function drLoadPdfLib(){
+  if (window.html2pdf) return Promise.resolve();
+  if (!drPdfLib) drPdfLib = new Promise((ok, bad) => { const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    sc.onload = ok; sc.onerror = () => { drPdfLib = null; bad(new Error('Could not load the PDF maker. Check the internet and try again.')); }; document.head.appendChild(sc); });
+  return drPdfLib;
+}
+
+/** Signature: removes the white paper, crops and shrinks it to a small transparent PNG. */
+function drCleanSign(file){
+  return new Promise((ok, bad) => {
+    const r = new FileReader(); r.onerror = bad;
+    r.onload = () => { const img = new Image(); img.onerror = bad; img.onload = () => {
+      const k = Math.min(1, 900 / img.width), c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      const x = c.getContext('2d'); x.drawImage(img, 0, 0, c.width, c.height);
+      const d = x.getImageData(0, 0, c.width, c.height), p = d.data;
+      let minX = c.width, minY = c.height, maxX = 0, maxY = 0;
+      for (let i = 0; i < p.length; i += 4) {
+        const lum = 0.3 * p[i] + 0.59 * p[i + 1] + 0.11 * p[i + 2];
+        if (lum > 165) { p[i + 3] = 0; continue; }                 // paper -> transparent
+        p[i + 3] = Math.min(255, Math.round((165 - lum) * 2.2));     // soft edges
+        const px = (i / 4) % c.width, py = Math.floor(i / 4 / c.width);
+        if (px < minX) minX = px; if (px > maxX) maxX = px; if (py < minY) minY = py; if (py > maxY) maxY = py;
+      }
+      if (maxX <= minX || maxY <= minY) return bad(new Error('No signature found in the photo. Use dark ink on white paper.'));
+      x.putImageData(d, 0, 0);
+      const pad = 6, w = maxX - minX + pad * 2, hgt = maxY - minY + pad * 2;
+      const o = document.createElement('canvas'), s2 = Math.min(1, 400 / w);
+      o.width = Math.round(w * s2); o.height = Math.round(hgt * s2);
+      o.getContext('2d').drawImage(c, minX - pad, minY - pad, w, hgt, 0, 0, o.width, o.height);
+      ok(o.toDataURL('image/png')); }; img.src = r.result; };
+    r.readAsDataURL(file);
+  });
 }
 
 VIEWS.defect = async function(){
@@ -1165,6 +1235,7 @@ VIEWS.defect = async function(){
     items: [], notes: 'Note : Prices may change based on orders online or offline, tax, and delivery service\nWorking hours may vary depending on parts received and any issues during the process', saved: null});
   let B = store.get('drDraft') || blank();
   let photos = B.items.map(() => []);     // photos stay in memory only (too big for the draft)
+  let sign = '';                          // Service Provider signature, kept privately in Drive
   const save = () => { try { store.set('drDraft', B); } catch(e){} };
   const asset = () => BOOT.assets.find(a => a.id.toLowerCase() === String(B.vehicle).trim().toLowerCase());
   const feeList = BOOT.fees || [];
@@ -1192,7 +1263,12 @@ VIEWS.defect = async function(){
       '<button class="btn" style="margin-top:12px" id="d_save">Save PDF</button>' +
       '<div id="d_done"></div>' +
       '<div class="grid2" style="margin-top:8px"><button class="btn ghost" id="d_prev">Preview</button><button class="btn ghost" id="d_new">New document</button></div></div>' +
-    '<div id="d_preview" class="hide" style="background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px;overflow:auto"></div>' +
+    '<div id="d_preview" class="drwrap hide"><div id="d_pinner" style="transform-origin:0 0"></div></div>' +
+    '<div class="card"><h3>Service Provider signature</h3><div class="small muted">' + h(DR.SUPERVISOR) + ' - added to every document automatically. Kept privately in Drive, not on GitHub.</div>' +
+      '<div id="d_sign" style="margin:10px 0;min-height:40px"></div>' +
+      '<label class="btn ghost sm" style="display:inline-block;width:auto">Upload signature photo<input type="file" accept="image/*" id="d_signfile" class="hide"></label>' +
+      ' <button class="btn ghost sm hide" style="display:inline-block;width:auto" id="d_signrm">Remove</button>' +
+      '<div class="small muted" style="margin-top:6px">Sign with a dark pen on plain white paper and take the photo straight on. The white paper is removed automatically.</div></div>' +
     '<div class="card"><h3>Saved documents</h3><div id="d_list" class="small muted">Loading...</div></div>';
 
   const bind = (id, key, after) => { const el = $('#' + id); el.value = B[key] || ''; el.oninput = () => { B[key] = el.value; save(); if (after) after(); refresh(); }; };
@@ -1200,8 +1276,24 @@ VIEWS.defect = async function(){
     const total = B.items.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
     $('#d_tot').innerHTML = B.items.length ? '<div class="kv"><div><b>Total</b></div><div style="text-align:right"><b>' + rp(total) + '</b></div></div>' : '';
     $('#d_title').textContent = title();
-    if (!$('#d_preview').classList.contains('hide')) $('#d_preview').innerHTML = drDocHtml(B, asset(), photos);
+    if (!$('#d_preview').classList.contains('hide')) drawPreview();
   };
+  const drawPreview = () => {
+    const box = $('#d_preview'), inner = $('#d_pinner');
+    inner.innerHTML = drDocHtml(B, asset(), photos, sign);
+    const k = Math.min(1, (box.clientWidth - 20) / 722);
+    inner.style.transform = 'scale(' + k + ')';
+    box.style.height = Math.ceil(inner.firstChild.offsetHeight * k + 22) + 'px';
+  };
+  const drawSign = () => {
+    $('#d_sign').innerHTML = sign ? '<img src="' + sign + '" style="max-height:70px;max-width:220px;background:#fff;border:1px dashed var(--line);border-radius:8px;padding:6px">' : '<span class="small muted">No signature yet - the box stays empty for signing by hand.</span>';
+    $('#d_signrm').classList.toggle('hide', !sign);
+  };
+  $('#d_signfile').onchange = async e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
+    try { const png = await drCleanSign(f); await api('apiDefectSign', ADMIN_PIN, png); sign = png; drawSign(); refresh(); toast('Signature saved'); }
+    catch(err){ toast(err.message, 6000); } };
+  $('#d_signrm').onclick = async () => { if (!confirm('Remove the saved signature?')) return;
+    try { await api('apiDefectSign', ADMIN_PIN, ''); sign = ''; drawSign(); refresh(); } catch(err){ toast(err.message); } };
   const vehChanged = () => { const a = asset(); if (a && a.type && a.type !== '-') { B.vehicleType = a.type; $('#d_vtype').value = a.type; save(); } };
 
   const drawItems = () => {
@@ -1244,7 +1336,8 @@ VIEWS.defect = async function(){
 
   const loadList = async () => {
     try {
-      const L = await api('apiDefectList', ADMIN_PIN);
+      const R = await api('apiDefectList', ADMIN_PIN), L = R.items || [];
+      sign = R.sign || ''; drawSign(); refresh();
       $('#d_list').innerHTML = L.length ? L.map(x => '<div class="item"><a href="' + h(x.url) + '" target="_blank" rel="noopener"><b>' + h(x.no) + '</b> - ' + h(x.vehicle) + ' - ' + h(x.requester || '-') + '</a>' +
         '<div class="small muted">' + h(x.date) + ' | ' + rp(x.total) + '</div></div>').join('') : 'No documents yet.';
     } catch(e){ $('#d_list').textContent = e.message; }
@@ -1258,13 +1351,31 @@ VIEWS.defect = async function(){
     if (!items.length) return toast('Add at least one item');
     const noPrice = items.find(x => !(Number(x.price) > 0)); if (noPrice) return toast('Type the price for: ' + noPrice.desc);
     const b = $('#d_save'); b.disabled = true; b.textContent = 'Making PDF...';
-    const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + h(title()) + '</title><style>@page{size:A4;margin:14mm}body{margin:0}</style></head><body>' + drDocHtml(B, asset(), photos) + '</body></html>';
+    let holder = null;
     try {
+      await drLoadPdfLib();
+      if (document.fonts && document.fonts.ready) await document.fonts.ready;
+      holder = document.createElement('div');   // behind the page, at the top-left (html2canvas cannot draw elements far off-screen)
+      holder.style.cssText = 'position:absolute;left:0;top:0;width:722px;background:#fff;z-index:-1;pointer-events:none';
+      holder.innerHTML = drDocHtml(B, asset(), photos, sign);
+      document.body.appendChild(holder);
+      await Promise.all(Array.from(holder.querySelectorAll('img')).map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
+      const sx = window.scrollX, sy = window.scrollY; window.scrollTo(0, 0);
+      const uri = await html2pdf().set({
+        margin: [10, 10, 12, 10], filename: title() + '.pdf', image: {type: 'jpeg', quality: 0.92},
+        html2canvas: {scale: 2, useCORS: true, backgroundColor: '#ffffff'},
+        jsPDF: {unit: 'mm', format: 'a4', orientation: 'portrait'},
+        pagebreak: {mode: ['css', 'legacy'], avoid: ['tr', '.sign', '.meta']}
+      }).from(holder.firstChild).outputPdf('datauristring');
+      window.scrollTo(sx, sy);
+      b.textContent = 'Saving to Drive...';
       const r = await api('apiSaveDefect', ADMIN_PIN, {no: B.no, date: B.date, vehicle: B.vehicle.trim(), vehicleType: B.vehicleType, requester: B.requester,
-        category: B.category, workStation: B.workStation, items: items.map(x => ({desc: x.desc, qty: Number(x.qty) || 0, price: Number(x.price) || 0})), title: title(), html});
+        category: B.category, workStation: B.workStation, items: items.map(x => ({desc: x.desc, qty: Number(x.qty) || 0, price: Number(x.price) || 0})), title: title(),
+        pdf: String(uri).split('base64,')[1]});
       B.saved = r; save(); showDone(); store.set('drStation', B.workStation); toast('PDF saved'); loadList();
       window.open(r.url, '_blank');
     } catch(e){ toast(e.message, 7000); }
+    if (holder) holder.remove();
     b.disabled = false; b.textContent = 'Save PDF';
   };
   $('#d_prev').onclick = () => { const p = $('#d_preview'); p.classList.toggle('hide'); $('#d_prev').textContent = p.classList.contains('hide') ? 'Preview' : 'Hide preview'; refresh(); if (!p.classList.contains('hide')) p.scrollIntoView({behavior: 'smooth'}); };
@@ -1273,9 +1384,9 @@ VIEWS.defect = async function(){
   const fill = () => {
     bind('d_no', 'no'); bind('d_date', 'date'); bind('d_veh', 'vehicle', vehChanged); bind('d_vtype', 'vehicleType'); bind('d_req', 'requester');
     bind('d_ws', 'workStation'); bind('d_cat', 'category'); bind('d_sub', 'subtitle'); bind('d_notes', 'notes');
-    drawItems(); showDone(); refresh();
+    drawItems(); showDone(); drawSign(); refresh();
   };
-  fill(); loadList();
+  fill(); loadList(); drLoadPdfLib().catch(() => {});
 };
 
 // ---------- input log (admin): every activity, maintenance and stock movement, tap to edit
