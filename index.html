@@ -114,6 +114,15 @@
   .jc .boqt .sec td{background:#eef4f1;font-weight:700;color:#0f5e4a}
   .jc .meta{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:3px 10px;font-size:13px;margin-bottom:6px}
   .jc .meta b{color:#5d6b76;font-weight:600}
+  .tool{border:1px solid var(--line);border-radius:10px;padding:9px 10px;margin-top:8px;background:#fff}
+  .tool.on{border-color:var(--ok);box-shadow:0 0 0 1px var(--ok) inset;background:var(--ok-2)}
+  .tool .tn{font-weight:600}
+  .tool .chips{margin-top:6px;gap:6px}
+  .tool .chip{padding:6px 10px;font-size:13px}
+  .tool .chip.cur{border-style:dashed}
+  .tool .chip.on.c-Damaged,.tool .chip.on.c-Missing{background:var(--bad);border-color:var(--bad);color:#fff}
+  .tool .chip.on.c-Under{background:var(--warn);border-color:var(--warn);color:#fff}
+  .savebar{position:sticky;bottom:0;z-index:4;background:var(--bg);padding:10px 0 4px}
   .drdoc{width:718px;background:#fff;color:#14212b;font-family:'Poppins',Arial,sans-serif;font-size:11px;line-height:1.45;padding:2px}
   .drdoc .jh{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2px solid #0f5e4a;padding-bottom:10px}
   .drdoc .jh img{width:132px;display:block;margin-bottom:6px}
@@ -229,7 +238,7 @@ let pushed = 0;
 function urlFor(c){
   if (c.view === 'asset') return '?v=' + encodeURIComponent(c.arg);
   if (c.view === 'part') return '?p=' + encodeURIComponent(c.arg);
-  if (['calendar','parts','jobs','addVehicle','addPart','inputLog','defect'].indexOf(c.view) > -1) return '?page=' + c.view;
+  if (['calendar','parts','jobs','addVehicle','addPart','inputLog','defect','tools','addTool'].indexOf(c.view) > -1) return '?page=' + c.view;
   if (c.view === 'restock') return '?page=restock' + (c.arg === 'count' ? '&mode=count' : '');
   if (c.view === 'home') return location.pathname;
   return null;
@@ -509,6 +518,7 @@ VIEWS.home = function(){
     '<div class="card stack">' +
       '<button class="btn" onclick="go(\'calendar\')">Maintenance calendar</button>' +
       '<button class="btn alt" onclick="go(\'parts\')">Spare parts and stock</button>' +
+      '<div class="grid2"><button class="btn alt" onclick="go(\'tools\')">Tools check</button><button class="btn alt" onclick="go(\'addTool\')">Add new tool</button></div>' +
       '<button class="btn alt" onclick="go(\'jobs\')">Job completion report (admin)</button>' +
       '<button class="btn alt" onclick="go(\'defect\')">Vehicle Defect Rectification Works (admin)</button>' +
       '<button class="btn alt" onclick="go(\'inputLog\')">Input log - check and edit (admin)</button>' +
@@ -1125,6 +1135,126 @@ VIEWS.addPart = async function(arg){
       $('#nextPart').onclick = () => { current.arg = {}; render(); };
       $('#openPart').onclick = () => go('part', r.id);
     } catch(e){ toast(e.message, 6000); b.disabled = false; b.textContent = 'Save new part'; }
+  };
+};
+
+// ---------- Tools check (checklist) and Add new tool
+VIEWS.tools = async function(){
+  setTitle('Tools check'); app().onclick = null;
+  app().innerHTML = '<div class="card muted">Loading tools...</div>';
+  let D;
+  try { D = await api('apiTools'); } catch(e){ app().innerHTML = '<div class="card">' + h(e.message) + '</div>'; return; }
+  const tools = D.tools, conds = D.conditions;
+  const draft = store.get('toolDraft') || {};          // id -> {cond, qty, notes}  (kept until saved)
+  let cat = store.get('toolCat') || 'All', q = '', open = null;
+  const saveDraft = () => store.set('toolDraft', draft);
+  const cls = c => 'c-' + String(c).split(' ')[0];
+  const condPill = c => c === 'Damaged' || c === 'Missing' ? 'p-bad' : c === 'Under Repair' ? 'p-warn' : 'p-ok';
+
+  app().innerHTML =
+    '<div class="card"><div class="row" style="align-items:center"><h3 style="flex:1;margin:0">Tools check</h3>' +
+      '<button class="btn ghost sm" style="flex:0 0 auto;width:auto" onclick="go(\'addTool\')">+ Add new tool</button></div>' +
+      '<label>Checked by</label><div id="t_mech"></div>' +
+      '<div class="chips" id="t_cats" style="margin-top:12px"></div>' +
+      '<input type="search" id="t_q" style="margin-top:10px" placeholder="Search tool name or ID">' +
+      '<div class="small muted" style="margin-top:8px">Tap the condition of each tool. Tap the same condition again if it did not change. Checked tools turn green.</div>' +
+      '<button class="btn ghost sm" style="margin-top:8px" id="t_all">Mark all shown as checked (no change)</button></div>' +
+    '<div id="t_list"></div>' +
+    '<div class="savebar"><div class="card" style="margin:0">' + pinField() + '<button class="btn" id="t_save" style="margin-top:8px">Save check</button></div></div>';
+  const mech = mechPicker($('#t_mech'));
+
+  const shown = () => { const t = q.trim().toLowerCase();
+    return tools.filter(x => (cat === 'All' || x.cat === cat) && (!t || (x.id + ' ' + x.name).toLowerCase().indexOf(t) > -1)); };
+  const drawCats = () => {
+    const n = c => tools.filter(x => c === 'All' || x.cat === c).length;
+    $('#t_cats').innerHTML = ['All'].concat(D.categories.filter(c => n(c))).map(c => '<span class="chip' + (c === cat ? ' on' : '') + '" data-c="' + h(c) + '">' + h(c) + ' (' + n(c) + ')</span>').join('');
+  };
+  const item = x => { const d = draft[x.id], cur = d ? d.cond : x.cond;
+    return '<div class="tool' + (d ? ' on' : '') + '" data-id="' + h(x.id) + '"><div class="row" style="align-items:baseline"><div class="tn" style="flex:3">' + h(x.name) + '</div>' +
+      '<span class="pill ' + condPill(x.cond) + '" style="flex:0 0 auto">' + h(x.cond || '-') + '</span></div>' +
+      '<div class="small muted">' + h(x.id) + ' | ' + h(x.cat) + ' | qty ' + (d && d.qty !== '' && d.qty != null ? h(d.qty) : x.qty) + (x.last ? ' | last check ' + h(x.last) + (x.by ? ' by ' + h(x.by) : '') : ' | never checked') + '</div>' +
+      '<div class="chips">' + conds.map(c => '<span class="chip ' + cls(c) + (d && d.cond === c ? ' on' : '') + (!d && x.cond === c ? ' cur' : '') + '" data-cond="' + h(c) + '">' + h(c) + '</span>').join('') + '</div>' +
+      (open === x.id || (d && (d.cond === 'Damaged' || d.cond === 'Missing' || d.cond === 'Under Repair')) ?
+        '<div class="grid2" style="margin-top:6px"><div><div class="lbl">Qty</div><input type="number" min="0" inputmode="numeric" data-qty value="' + h(d && d.qty !== '' && d.qty != null ? d.qty : x.qty) + '"></div>' +
+        '<div><div class="lbl">Note</div><input data-note placeholder="e.g. battery weak" value="' + h(d ? d.notes || '' : '') + '"></div></div>' :
+        '<div class="small" style="margin-top:4px"><a href="#" data-more>Change qty / add note</a>' + (x.notes ? ' <span class="muted">| ' + h(x.notes) + '</span>' : '') + '</div>') +
+      '</div>'; };
+  const drawList = () => {
+    const L = shown();
+    const done = Object.keys(draft).length;
+    $('#t_list').innerHTML = '<div class="small muted" style="margin:4px 2px">' + L.length + ' tools shown | ' + done + ' checked</div>' + L.map(item).join('');
+    $('#t_save').textContent = done ? 'Save check (' + done + ' tool' + (done > 1 ? 's' : '') + ')' : 'Save check';
+  };
+  const redrawOne = id => { const el = app().querySelector('.tool[data-id="' + CSS.escape(id) + '"]'); const x = tools.find(t => t.id === id); if (el && x) el.outerHTML = item(x);
+    const done = Object.keys(draft).length; $('#t_save').textContent = done ? 'Save check (' + done + ' tool' + (done > 1 ? 's' : '') + ')' : 'Save check';
+    const c = $('#t_list .small.muted'); if (c) c.textContent = shown().length + ' tools shown | ' + done + ' checked'; };
+
+  $('#t_cats').onclick = e => { const c = e.target.dataset.c; if (!c) return; cat = c; store.set('toolCat', c); drawCats(); drawList(); };
+  $('#t_q').oninput = () => { q = $('#t_q').value; drawList(); };
+  $('#t_list').onclick = e => {
+    const box = e.target.closest('.tool'); if (!box) return;
+    const id = box.dataset.id, x = tools.find(t => t.id === id);
+    if (e.target.dataset.more != null) { e.preventDefault(); open = id; redrawOne(id); return; }
+    const c = e.target.dataset.cond; if (!c) return;
+    if (draft[id] && draft[id].cond === c) delete draft[id];       // tap again = uncheck
+    else draft[id] = Object.assign({qty: '', notes: ''}, draft[id] || {}, {cond: c});
+    saveDraft(); redrawOne(id);
+  };
+  $('#t_list').oninput = e => { const box = e.target.closest('.tool'); if (!box) return; const id = box.dataset.id, x = tools.find(t => t.id === id);
+    if (!draft[id]) draft[id] = {cond: x.cond && conds.indexOf(x.cond) > -1 ? x.cond : 'Good', qty: '', notes: ''};
+    if (e.target.dataset.qty != null) draft[id].qty = e.target.value;
+    if (e.target.dataset.note != null) draft[id].notes = e.target.value;
+    saveDraft(); box.classList.add('on'); };
+  $('#t_all').onclick = () => { shown().forEach(x => { if (!draft[x.id]) draft[x.id] = {cond: conds.indexOf(x.cond) > -1 ? x.cond : 'Good', qty: '', notes: ''}; }); saveDraft(); drawList(); };
+  $('#t_save').onclick = async () => {
+    const ids = Object.keys(draft);
+    if (!ids.length) return toast('Tap the condition of at least one tool');
+    const who = mech.get(); if (!who.length) return toast('Choose who checked the tools');
+    const b = $('#t_save'); b.disabled = true; b.textContent = 'Saving...';
+    try {
+      const r = await api('apiToolCheck', {pin: readPin(), mechanics: who, items: ids.map(id => ({id, cond: draft[id].cond, qty: draft[id].qty, notes: draft[id].notes}))});
+      mech.remember(); store.set('toolDraft', {});
+      toast('Saved ' + r.checked + ' tool' + (r.checked > 1 ? 's' : '') + (r.problems ? ' - ' + r.problems + ' with a problem, sent to Telegram' : '') + (r.warnings.length ? '. ' + r.warnings[0] : ''), r.problems || r.warnings.length ? 6000 : 3000);
+      VIEWS.tools();
+    } catch(e){ toast(e.message, 6000); b.disabled = false; drawList(); }
+  };
+  drawCats(); drawList();
+};
+
+VIEWS.addTool = async function(){
+  setTitle('Add new tool'); app().onclick = null;
+  app().innerHTML = '<div class="card muted">Loading...</div>';
+  let D;
+  try { D = await api('apiTools'); } catch(e){ app().innerHTML = '<div class="card">' + h(e.message) + '</div>'; return; }
+  app().innerHTML = '<div class="card"><h3>Add new tool</h3>' +
+    '<label>Tool name <span class="req">*</span></label><input id="a_name" placeholder="e.g. Cordless Impact Driver Makita TD110DWYE">' +
+    '<div class="grid2"><div><label>Category</label><select id="a_cat">' + D.categories.map(c => '<option>' + h(c) + '</option>').join('') + '</select></div>' +
+    '<div><label>Quantity</label><input id="a_qty" type="number" min="1" inputmode="numeric" value="1"></div></div>' +
+    '<label>Condition</label><select id="a_cond">' + D.conditions.map(c => '<option' + (c === 'New' ? ' selected' : '') + '>' + h(c) + '</option>').join('') + '</select>' +
+    '<label>Note</label><input id="a_notes" placeholder="Optional, e.g. brand, size, where it is kept">' +
+    '<label>Added by</label><div id="a_mech"></div>' + pinField() +
+    '<button class="btn" style="margin-top:12px" id="a_save">Add tool</button>' +
+    '<div class="small muted" style="margin-top:6px">The tool ID is made automatically from the category, e.g. TL-HT-183.</div></div>' +
+    '<div id="a_done"></div>';
+  const mech = mechPicker($('#a_mech'));
+  const similar = () => { const t = $('#a_name').value.trim().toLowerCase(); if (t.length < 3) return '';
+    const hits = D.tools.filter(x => x.name.toLowerCase().indexOf(t) > -1).slice(0, 5);
+    return hits.length ? '<div class="small" style="margin-top:6px;color:var(--warn)">Already in the list: ' + hits.map(x => h(x.id + ' ' + x.name)).join(', ') + '</div>' : ''; };
+  $('#a_name').oninput = () => { $('#a_done').innerHTML = similar() ? '<div class="card">' + similar() + '</div>' : ''; };
+  $('#a_save').onclick = async () => {
+    const who = mech.get();
+    if (!$('#a_name').value.trim()) return toast('Fill in the tool name');
+    if (!who.length) return toast('Choose who adds the tool');
+    const b = $('#a_save'); b.disabled = true; b.textContent = 'Saving...';
+    try {
+      const r = await api('apiAddTool', {pin: readPin(), name: $('#a_name').value, cat: $('#a_cat').value, qty: $('#a_qty').value,
+        cond: $('#a_cond').value, notes: $('#a_notes').value, by: who.join(', ')});
+      mech.remember();
+      $('#a_done').innerHTML = '<div class="card" style="background:var(--ok-2)">Added <b>' + h(r.id) + '</b> ' + h(r.name) + '</div>';
+      $('#a_name').value = ''; $('#a_notes').value = ''; $('#a_qty').value = 1;
+      toast('Tool added: ' + r.id);
+    } catch(e){ toast(e.message, 6000); }
+    b.disabled = false; b.textContent = 'Add tool';
   };
 };
 
