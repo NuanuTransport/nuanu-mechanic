@@ -144,6 +144,9 @@
   .drdoc .num{text-align:right;white-space:nowrap}
   .drdoc .ctr{text-align:center}
   .drdoc td img{width:132px;height:99px;object-fit:cover;border-radius:6px;border:1px solid #dde3e8;display:block;margin:2px auto}
+  .drdoc .dr-t td{border:1px solid #dde3e8}
+  .drdoc .dr-t td.num{white-space:nowrap}
+  .drdoc .dr-t tr.opt td{border-top:1px solid #eef1f3}
   .drdoc .tot td{border-bottom:0;border-top:2px solid #14212b;font-weight:700;font-size:12px;padding-top:9px}
   .drdoc .note{margin-top:14px;font-size:10px;color:#5d6b76;white-space:pre-wrap;border-left:3px solid #0f5e4a;padding-left:9px}
   .drdoc .sign{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:26px;break-inside:avoid;page-break-inside:avoid}
@@ -1301,18 +1304,35 @@ function drResize(file, max){
   });
 }
 
+/** Items: {kind:'defect', desc, options:[{text, price, src}]} or {kind:'charge', desc, qty, price, src}. Old drafts are converted. */
+function drNormItems(items){
+  return (items || []).map(x => {
+    if (x.kind) return x;
+    if (/service fee list|type the price/.test(x.src || '')) return {kind: 'charge', desc: x.desc, qty: x.qty || 1, price: x.price || 0, src: x.src || ''};
+    return {kind: 'defect', desc: x.desc, options: [{text: '', price: (Number(x.qty) || 1) * (Number(x.price) || 0), src: x.src || ''}]};
+  });
+}
+const drItemTotal = x => x.kind === 'charge' ? (Number(x.qty) || 0) * (Number(x.price) || 0) : (x.options || []).reduce((s, o) => s + (Number(o.price) || 0), 0);
+
 /** The document, Job Completion style, Poppins. The same element is shown as preview and turned into the PDF. */
 function drDocHtml(B, a, photos, sign){
   const items = B.items.filter(x => x.desc.trim());
-  const total = items.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
+  const total = items.reduce((s, x) => s + drItemTotal(x), 0);
   const type = (B.vehicleType || (a && a.type !== '-' ? a.type : '') || 'Vehicle').toUpperCase();
   const period = B.date ? DR_MONTHS[new Date(B.date + 'T00:00:00').getMonth()] + ' ' + B.date.slice(0, 4) : '';
-  const rows = items.map((x, n) => { const ph = (photos[B.items.indexOf(x)] || []).filter(Boolean);
-    return '<tr><td class="ctr" style="width:26px">' + (n + 1) + '</td><td>' + h(x.desc) + '</td>' +
-      '<td class="ctr" style="width:150px">' + ph.map(p => '<img src="' + p + '">').join('') + '</td>' +
-      '<td class="ctr" style="width:36px">' + h(x.qty) + '</td>' +
-      '<td class="num" style="width:100px">Rp ' + drMoney(x.price) + '</td>' +
-      '<td class="num" style="width:108px">Rp ' + drMoney((Number(x.qty) || 0) * (Number(x.price) || 0)) + '</td></tr>'; }).join('');
+  const money = v => '<span style="float:left">Rp</span>' + drMoney(v);
+  const rows = items.map((x, n) => {
+    if (x.kind === 'charge') return '<tr class="grp"><td class="ctr">' + (n + 1) + '</td><td colspan="2" class="ctr">' + h(x.desc) + '</td>' +
+      '<td class="ctr">' + h(x.qty) + '</td><td class="num">' + money(drItemTotal(x)) + '</td></tr>';
+    const ph = (photos[B.items.indexOf(x)] || []).filter(Boolean);
+    const opts = (x.options || []).filter(o => String(o.text).trim() || Number(o.price) > 0);
+    const list = opts.length ? opts : [{text: '', price: 0}];
+    const span = list.length > 1 ? ' rowspan="' + list.length + '"' : '';
+    return list.map((o, k) => '<tr class="' + (k === 0 ? 'grp' : 'opt') + '">' +
+      (k === 0 ? '<td class="ctr"' + span + '>' + (n + 1) + '</td><td class="ctr"' + span + '>' + h(x.desc) + '</td>' +
+        '<td class="ctr"' + span + '>' + ph.map(p => '<img src="' + p + '">').join('') + '</td>' : '') +
+      '<td class="ctr">' + h(o.text) + '</td><td class="num">' + (Number(o.price) > 0 ? money(o.price) : '') + '</td></tr>').join('');
+  }).join('');
   return '<div class="drdoc">' +
     '<div class="jh"><div><img src="' + DR.LOGO + '"><div class="co">' + DR.ADDRESS.map(h).join('<br>') + '</div></div>' +
       '<div class="ttl"><b>VEHICLE DEFECT RECTIFICATION WORKS</b><div class="no">' + h(B.no) + '</div>' +
@@ -1326,8 +1346,9 @@ function drDocHtml(B, a, photos, sign){
       '<div><span>Internal Supervisor</span><b>' + h(DR.SUPERVISOR) + '</b></div>' +
       '<div><span>Requester</span><b>' + h(B.requester || '-') + '</b></div></div>' +
     '<h4>Details of defects and rectification</h4>' +
-    '<table><tr><th class="ctr">No</th><th>Description</th><th class="ctr">Photos</th><th class="ctr">Qty</th><th class="num">Price</th><th class="num">Total</th></tr>' + rows +
-      '<tr class="tot"><td></td><td colspan="3">Total</td><td></td><td class="num">Rp ' + drMoney(total) + '</td></tr></table>' +
+    '<table class="dr-t"><colgroup><col style="width:34px"><col style="width:170px"><col style="width:150px"><col><col style="width:140px"></colgroup>' +
+      '<tr><th class="ctr">No.</th><th class="ctr">Description</th><th class="ctr">Photos</th><th class="ctr">Repair option</th><th class="ctr">Estimation price</th></tr>' + rows +
+      '<tr class="tot"><td colspan="3" style="border:0"></td><td class="num">Total</td><td class="num">' + money(total) + '</td></tr></table>' +
     (B.notes ? '<div class="note">' + h(B.notes) + '</div>' : '') +
     '<div class="sign"><div><div class="t">Service Provider</div><div class="s">Internal Supervisor</div><div class="box">' + (sign ? '<img src="' + sign + '">' : '') + '</div>' +
       '<div class="ln">' + h(DR.SUPERVISOR) + '</div><div class="s">Transport / ' + h(drShort(B.date)) + '</div></div>' +
@@ -1384,11 +1405,14 @@ VIEWS.defect = async function(){
     items: [], notes: 'Notes:\n1. Prices may change depending on online or offline orders, taxes and delivery charges.\n2. Completion time may vary depending on the arrival of parts and any issues found during the repair.', saved: null});
   let B = store.get('drDraft') || blank();
   B.items.forEach(x => { const f = (BOOT.fees || []).find(f => f.name === x.desc); if (f && DR_FEE_EN[f.id]) x.desc = DR_FEE_EN[f.id]; });
+  B.items = drNormItems(B.items);
   let photos = B.items.map(() => []);     // photos stay in memory only (too big for the draft)
   let sign = '';                          // Service Provider signature, kept privately in Drive
   const save = () => { try { store.set('drDraft', B); } catch(e){} };
   const asset = () => BOOT.assets.find(a => a.id.toLowerCase() === String(B.vehicle).trim().toLowerCase());
   const feeList = BOOT.fees || [];
+  const feeOpts = Array.from(new Set(feeList.map(f => f.cat))).map(c => '<optgroup label="' + h(c) + '">' + feeList.filter(f => f.cat === c).map(f =>
+    '<option value="' + h(f.id) + '">' + h(DR_FEE_EN[f.id] || f.name) + ' - ' + (f.price ? rp(f.price) : 'type price') + '</option>').join('') + '</optgroup>').join('');
   const title = () => { const a = asset(); const type = (B.vehicleType || (a && a.type !== '-' ? a.type : '')).toUpperCase();
     return ['Vehicle Defect Rectification', B.no, (type ? type + ' ' : '') + B.vehicle, B.requester, drShort(B.date)].filter(x => String(x || '').trim()).join(' - '); };
 
@@ -1401,13 +1425,14 @@ VIEWS.defect = async function(){
     '<div class="grid2"><div><label>Requester</label><input id="d_req" placeholder="e.g. NRE"></div><div><label>Work station</label><input id="d_ws"></div></div>' +
     '<label>Category</label><input id="d_cat">' +
     '<label>Line under the vehicle (in English)</label><input id="d_sub" placeholder="e.g. Details of damage found during inspection after the rental period"></div>' +
-    '<div class="card"><h3>Items</h3>' +
-      '<input id="d_pq" placeholder="Add spare part (search name or ID) - price +' + Math.round(DR.MARKUP * 100) + '%"><div id="d_pres" class="list hide" style="margin-top:6px"></div>' +
-      '<select id="d_fsel" style="margin-top:8px"><option value="">Add service / labour...</option>' +
-        Array.from(new Set(feeList.map(f => f.cat))).map(c => '<optgroup label="' + h(c) + '">' + feeList.filter(f => f.cat === c).map(f =>
-          '<option value="' + h(f.id) + '">' + h(f.name) + ' - ' + (f.price ? rp(f.price) : 'type price') + '</option>').join('') + '</optgroup>').join('') + '</select>' +
-      '<button class="btn ghost sm" style="margin-top:8px" id="d_blank">+ Empty line (type description and price)</button>' +
-      '<div id="d_items"></div><div id="d_tot" style="margin-top:10px"></div></div>' +
+    '<div class="card"><h3>Defects and repair options</h3>' +
+      '<div class="small muted">One defect = description + photos + one or more repair options, each with its own price (e.g. Repaint Rp600.000 or Buffing Rp200.000).</div>' +
+      '<div id="d_items"></div>' +
+      '<button class="btn ghost sm" style="margin-top:10px" id="d_blank">+ Add defect</button>' +
+      '<h4 style="margin:16px 0 6px">Other charges</h4>' +
+      '<select id="d_fsel"><option value="">Add a charge, e.g. installation &amp; setup...</option>' + feeOpts + '</select>' +
+      '<button class="btn ghost sm" style="margin-top:8px" id="d_charge">+ Other charge (type)</button>' +
+      '<div id="d_tot" style="margin-top:10px"></div></div>' +
     '<div class="card"><label style="margin-top:0">Note</label><textarea id="d_notes" style="min-height:70px"></textarea>' +
       '<div class="small muted" style="margin-top:10px">PDF name (filled automatically):</div><div id="d_title" style="font-weight:600;margin-top:2px"></div>' +
       '<button class="btn" style="margin-top:12px" id="d_save">Save PDF</button>' +
@@ -1423,7 +1448,7 @@ VIEWS.defect = async function(){
 
   const bind = (id, key, after) => { const el = $('#' + id); el.value = B[key] || ''; el.oninput = () => { B[key] = el.value; save(); if (after) after(); refresh(); }; };
   const refresh = () => {
-    const total = B.items.reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.price) || 0), 0);
+    const total = B.items.reduce((s, x) => s + drItemTotal(x), 0);
     $('#d_tot').innerHTML = B.items.length ? '<div class="kv"><div><b>Total</b></div><div style="text-align:right"><b>' + rp(total) + '</b></div></div>' : '';
     $('#d_title').textContent = title();
     if (!$('#d_preview').classList.contains('hide')) drawPreview();
@@ -1446,60 +1471,88 @@ VIEWS.defect = async function(){
     try { await api('apiDefectSign', ADMIN_PIN, ''); sign = ''; drawSign(); refresh(); } catch(err){ toast(err.message); } };
   const vehChanged = () => { const a = asset(); if (a && a.type && a.type !== '-') { B.vehicleType = a.type; $('#d_vtype').value = a.type; save(); } };
 
+  const optRow = (i, k, o) => '<div class="row" style="margin-top:6px;gap:6px">' +
+    '<input style="flex:3" data-i="' + i + '" data-o="' + k + '" data-k="text" placeholder="Repair option, e.g. Repaint" value="' + h(o.text) + '">' +
+    '<input style="flex:2" inputmode="numeric" data-i="' + i + '" data-o="' + k + '" data-k="price" placeholder="Price" value="' + (o.price ? drMoney(o.price) : '') + '">' +
+    '<button class="btn ghost sm" style="flex:0 0 auto;width:auto" data-rmo="' + i + ':' + k + '">x</button></div>' +
+    (o.src ? '<div class="small muted">' + h(o.src) + '</div>' : '');
   const drawItems = () => {
-    $('#d_items').innerHTML = B.items.map((x, i) => '<div class="boq-line"><div class="row"><b style="flex:1">Item ' + (i + 1) + '</b>' +
-      '<button class="btn ghost sm" style="flex:0 0 auto;width:auto" data-rm="' + i + '">Remove</button></div>' +
-      '<input data-k="desc" data-i="' + i + '" placeholder="Description in English, e.g. Cracked windshield" value="' + h(x.desc) + '">' +
-      '<div class="grid2" style="margin-top:6px"><div><div class="lbl">Qty</div><input type="number" min="1" inputmode="numeric" data-k="qty" data-i="' + i + '" value="' + h(x.qty) + '"></div>' +
-      '<div><div class="lbl">Price (Rp)</div><input inputmode="numeric" data-k="price" data-i="' + i + '" placeholder="Type price" value="' + (x.price ? drMoney(x.price) : '') + '"></div></div>' +
-      (x.src ? '<div class="small muted" style="margin-top:4px">' + h(x.src) + '</div>' : '') +
-      '<div class="lbl" style="margin-top:6px">Photos (max 2)</div><input type="file" accept="image/*" multiple data-ph="' + i + '">' +
-      ((photos[i] || []).length ? '<div class="small" style="margin-top:4px">' + photos[i].length + ' photo' + (photos[i].length > 1 ? 's' : '') + ' added</div>' : '') +
-      '</div>').join('');
+    let n = 0;
+    $('#d_items').innerHTML = B.items.map((x, i) => { n++;
+      if (x.kind === 'charge') return '<div class="boq-line"><div class="row"><b style="flex:1">' + n + '. Other charge</b>' +
+        '<button class="btn ghost sm" style="flex:0 0 auto;width:auto" data-rm="' + i + '">Remove</button></div>' +
+        '<input data-i="' + i + '" data-k="desc" placeholder="e.g. Installation &amp; setup" value="' + h(x.desc) + '">' +
+        '<div class="grid2" style="margin-top:6px"><div><div class="lbl">Qty</div><input type="number" min="1" inputmode="numeric" data-i="' + i + '" data-k="qty" value="' + h(x.qty) + '"></div>' +
+        '<div><div class="lbl">Price each (Rp)</div><input inputmode="numeric" data-i="' + i + '" data-k="price" value="' + (x.price ? drMoney(x.price) : '') + '"></div></div>' +
+        (x.src ? '<div class="small muted" style="margin-top:4px">' + h(x.src) + '</div>' : '') + '</div>';
+      return '<div class="boq-line"><div class="row"><b style="flex:1">' + n + '. Defect</b>' +
+        '<button class="btn ghost sm" style="flex:0 0 auto;width:auto" data-rm="' + i + '">Remove</button></div>' +
+        '<input data-i="' + i + '" data-k="desc" placeholder="Description in English, e.g. Scratch on left side front body cover" value="' + h(x.desc) + '">' +
+        '<div class="lbl" style="margin-top:6px">Photos (max 2)</div><input type="file" accept="image/*" multiple data-ph="' + i + '">' +
+        ((photos[i] || []).length ? '<div class="small" style="margin-top:4px">' + photos[i].length + ' photo' + (photos[i].length > 1 ? 's' : '') + ' added</div>' : '') +
+        '<div class="lbl" style="margin-top:8px">Repair options</div>' + (x.options || []).map((o, k) => optRow(i, k, o)).join('') +
+        '<div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap">' +
+          '<button class="btn ghost sm" style="flex:0 0 auto;width:auto" data-addo="' + i + '">+ Option</button>' +
+          '<input style="flex:1 1 160px" data-pq="' + i + '" placeholder="+ Spare part (search)">' +
+          '<select style="flex:1 1 160px" data-fs="' + i + '"><option value="">+ Service...</option>' + feeOpts + '</select></div>' +
+        '<div class="list hide" data-pres="' + i + '" style="margin-top:6px"></div></div>'; }).join('') ||
+      '<div class="small muted" style="margin-top:8px">No defects yet.</div>';
   };
-  $('#d_items').oninput = e => { const t = e.target, i = t.dataset.i, k = t.dataset.k; if (i == null || !k) return;
-    B.items[+i][k] = k === 'price' ? Number(t.value.replace(/\D/g, '')) || 0 : t.value; save(); refresh(); };
-  $('#d_items').onchange = async e => { const i = e.target.dataset.ph; if (i == null) return;
-    const files = Array.from(e.target.files || []).slice(0, 2);
+  $('#d_items').oninput = e => { const t = e.target, i = t.dataset.i, k = t.dataset.k;
+    if (t.dataset.pq != null) return partSearch(+t.dataset.pq, t.value);
+    if (i == null || !k) return;
+    const x = B.items[+i], target = t.dataset.o != null ? x.options[+t.dataset.o] : x;
+    target[k] = k === 'price' ? Number(t.value.replace(/\D/g, '')) || 0 : t.value; save(); refresh(); };
+  $('#d_items').onchange = async e => { const t = e.target;
+    if (t.dataset.fs != null) { const f = feeList.find(x => x.id === t.value); const i = +t.dataset.fs; t.value = ''; if (!f) return;
+      addOption(i, {text: DR_FEE_EN[f.id] || f.name, price: f.price || 0, src: f.id + ' ' + f.name + (f.price ? ' | service fee list' : ' | type the price')}, !DR_FEE_EN[f.id]); return; }
+    const i = t.dataset.ph; if (i == null) return;
+    const files = Array.from(t.files || []).slice(0, 2);
     try { photos[+i] = await Promise.all(files.map(f => drResize(f, 700))); } catch(err){ toast('Could not read the photo'); }
     drawItems(); refresh(); };
-  $('#d_items').addEventListener('focusout', e => { const t = e.target; if (t.dataset.k === 'desc') translateLine(B.items[+t.dataset.i]); });
-  $('#d_items').onclick = e => { const i = e.target.dataset.rm; if (i == null) return; B.items.splice(+i, 1); photos.splice(+i, 1); save(); drawItems(); refresh(); };
-  const addItem = x => { B.items.push(Object.assign({desc: '', qty: 1, price: 0, src: ''}, x)); photos.push([]); save(); drawItems(); refresh(); return B.items[B.items.length - 1]; };
-  // English only: Google Translate through Apps Script (English text stays the same)
-  const toEnglish = async list => { try { return await api('apiTranslate', ADMIN_PIN, list); } catch(e){ return list; } };
-  const translateLine = async line => {
-    if (!line || !line.desc) return;
-    const before = line.desc, [en] = await toEnglish([before]);
-    if (en && en !== before && line.desc === before) { line.desc = en; save(); drawItems(); refresh(); }
+  $('#d_items').addEventListener('focusout', e => { const t = e.target; if (t.dataset.k === 'desc' || t.dataset.k === 'text') translateField(+t.dataset.i, t.dataset.o, t.dataset.k); });
+  $('#d_items').onclick = async e => { const t = e.target;
+    if (t.dataset.rm != null) { B.items.splice(+t.dataset.rm, 1); photos.splice(+t.dataset.rm, 1); save(); drawItems(); refresh(); return; }
+    if (t.dataset.rmo) { const [i, k] = t.dataset.rmo.split(':').map(Number); B.items[i].options.splice(k, 1); save(); drawItems(); refresh(); return; }
+    if (t.dataset.addo != null) { addOption(+t.dataset.addo, {text: '', price: 0}); return; }
+    const hit = t.closest('[data-add]'); if (!hit) return;
+    const i = +hit.closest('[data-pres]').dataset.pres, p = partById(hit.dataset.add);
+    let cost = Number(p.price) || 0;
+    if (!cost) { try { cost = Number((await api('apiGetPart', p.id)).part.price) || 0; } catch(err){ toast(err.message); } }
+    addOption(i, {text: p.name, price: Math.round(cost * (1 + DR.MARKUP)), src: p.id + ' ' + p.name + (cost ? ' | ' + rp(cost) + ' + ' + Math.round(DR.MARKUP * 100) + '%' : ' | no price in the list, type it')}, true);
   };
-  const englishAll = async () => {
-    const fields = ['subtitle', 'notes', 'category', 'workStation'];
-    const list = B.items.map(x => x.desc).concat(fields.map(k => B[k] || ''));
-    const en = await toEnglish(list);
-    B.items.forEach((x, i) => { if (en[i]) x.desc = en[i]; });
-    fields.forEach((k, i) => { const v = en[B.items.length + i]; if (v) { B[k] = v; const el = {subtitle: 'd_sub', notes: 'd_notes', category: 'd_cat', workStation: 'd_ws'}[k]; if ($('#' + el)) $('#' + el).value = v; } });
-    save(); drawItems(); refresh();
-  };
-
-  $('#d_pq').oninput = () => {
-    const t = $('#d_pq').value.trim().toLowerCase(), res = $('#d_pres');
+  const partSearch = (i, q) => {
+    const res = app().querySelector('[data-pres="' + i + '"]'); const t = String(q).trim().toLowerCase();
     if (t.length < 2) { res.classList.add('hide'); return; }
     const w = t.split(/\s+/);
-    const hits = BOOT.parts.filter(p => w.every(x => (p.id + ' ' + p.name + ' ' + p.cat).toLowerCase().indexOf(x) > -1)).slice(0, 15);
+    const hits = BOOT.parts.filter(p => w.every(x => (p.id + ' ' + p.name + ' ' + p.cat).toLowerCase().indexOf(x) > -1)).slice(0, 12);
     res.innerHTML = hits.map(p => '<div class="item" data-add="' + h(p.id) + '"><b>' + h(p.name) + '</b><div class="small muted">' + h(p.id) + ' | stock ' + p.avail + '</div></div>').join('') || '<div class="muted">No part found</div>';
     res.classList.remove('hide');
   };
-  $('#d_pres').onclick = async e => { const d = e.target.closest('[data-add]'); if (!d) return;
-    const p = partById(d.dataset.add); $('#d_pres').classList.add('hide'); $('#d_pq').value = '';
-    let cost = Number(p.price) || 0;
-    if (!cost) { try { cost = Number((await api('apiGetPart', p.id)).part.price) || 0; } catch(err){ toast(err.message); } }
-    translateLine(addItem({desc: p.name, price: Math.round(cost * (1 + DR.MARKUP)), src: p.id + ' ' + p.name + (cost ? ' | ' + rp(cost) + ' + ' + Math.round(DR.MARKUP * 100) + '%' : ' | no price in the list, type it')}));
+  const addItem = x => { B.items.push(x); photos.push([]); save(); drawItems(); refresh(); return x; };
+  const addOption = (i, o, translate) => { const x = B.items[i]; x.options = x.options || []; x.options.push(o); save(); drawItems(); refresh();
+    if (translate) translateField(i, x.options.length - 1, 'text'); };
+  // English only: Google Translate through Apps Script (English text stays the same)
+  const toEnglish = async list => { try { return await api('apiTranslate', ADMIN_PIN, list); } catch(e){ return list; } };
+  const translateField = async (i, o, k) => {
+    const x = B.items[i]; if (!x) return;
+    const obj = o != null && o !== '' && o !== undefined ? x.options[+o] : x; if (!obj || !obj[k]) return;
+    const before = obj[k], [en] = await toEnglish([before]);
+    if (en && en !== before && obj[k] === before) { obj[k] = en; save(); drawItems(); refresh(); }
+  };
+  const englishAll = async () => {
+    const fields = ['subtitle', 'notes', 'category', 'workStation'];
+    const refs = [];
+    B.items.forEach(x => { refs.push([x, 'desc']); (x.options || []).forEach(o => refs.push([o, 'text'])); });
+    const en = await toEnglish(refs.map(([o, k]) => o[k] || '').concat(fields.map(k => B[k] || '')));
+    refs.forEach(([o, k], n) => { if (en[n]) o[k] = en[n]; });
+    fields.forEach((k, n) => { const v = en[refs.length + n]; if (v) { B[k] = v; const el = {subtitle: 'd_sub', notes: 'd_notes', category: 'd_cat', workStation: 'd_ws'}[k]; if ($('#' + el)) $('#' + el).value = v; } });
+    save(); drawItems(); refresh();
   };
   $('#d_fsel').onchange = e => { const f = feeList.find(x => x.id === e.target.value); e.target.value = ''; if (!f) return;
-    const line = addItem({desc: DR_FEE_EN[f.id] || f.name, price: f.price || 0, src: f.id + ' ' + f.name + (f.price ? ' | service fee list' : ' | type the price')});
-    if (!DR_FEE_EN[f.id]) translateLine(line); };
-  $('#d_blank').onclick = () => addItem({});
+    addItem({kind: 'charge', desc: DR_FEE_EN[f.id] || f.name, qty: 1, price: f.price || 0, src: f.id + ' ' + f.name + (f.price ? ' | service fee list' : ' | type the price')}); };
+  $('#d_charge').onclick = () => addItem({kind: 'charge', desc: '', qty: 1, price: 0, src: ''});
+  $('#d_blank').onclick = () => addItem({kind: 'defect', desc: '', options: [{text: '', price: 0}]});
 
   const loadList = async () => {
     try {
@@ -1516,7 +1569,8 @@ VIEWS.defect = async function(){
     if (!B.vehicle.trim()) return toast('Choose the vehicle');
     const items = B.items.filter(x => x.desc.trim());
     if (!items.length) return toast('Add at least one item');
-    const noPrice = items.find(x => !(Number(x.price) > 0)); if (noPrice) return toast('Type the price for: ' + noPrice.desc);
+    const noPrice = items.find(x => x.kind === 'charge' ? !(Number(x.price) > 0) : !(x.options || []).some(o => Number(o.price) > 0));
+    if (noPrice) return toast('Type a price for: ' + noPrice.desc);
     const b = $('#d_save'); b.disabled = true; b.textContent = 'Translating to English...';
     let holder = null;
     try {
@@ -1539,7 +1593,8 @@ VIEWS.defect = async function(){
       window.scrollTo(sx, sy);
       b.textContent = 'Saving to Drive...';
       const r = await api('apiSaveDefect', ADMIN_PIN, {no: B.no, date: B.date, vehicle: B.vehicle.trim(), vehicleType: B.vehicleType, requester: B.requester,
-        category: B.category, workStation: B.workStation, items: items.map(x => ({desc: x.desc, qty: Number(x.qty) || 0, price: Number(x.price) || 0})), title: title(),
+        category: B.category, workStation: B.workStation, items: items.reduce((L, x) => L.concat(x.kind === 'charge' ? [{desc: x.desc, qty: Number(x.qty) || 0, price: Number(x.price) || 0}] :
+          (x.options || []).filter(o => Number(o.price) > 0).map(o => ({desc: x.desc + (o.text ? ' - ' + o.text : ''), qty: 1, price: Number(o.price) || 0}))), []), title: title(),
         pdf: String(uri).split('base64,')[1]});
       B.saved = r; save(); showDone(); store.set('drStation', B.workStation); toast('PDF saved'); loadList();
       window.open(r.url, '_blank');
