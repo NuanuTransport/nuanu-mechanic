@@ -123,7 +123,7 @@
   .tool .chip.on.c-Damaged,.tool .chip.on.c-Missing{background:var(--bad);border-color:var(--bad);color:#fff}
   .tool .chip.on.c-Under{background:var(--warn);border-color:var(--warn);color:#fff}
   .savebar{position:sticky;bottom:0;z-index:4;background:var(--bg);padding:10px 0 4px}
-  .drdoc{width:718px;background:#fff;color:#14212b;font-family:'Poppins',Arial,sans-serif;font-size:11px;line-height:1.45;padding:2px}
+  .drdoc{width:700px;box-sizing:border-box;background:#fff;color:#14212b;font-family:'Poppins',Arial,sans-serif;font-size:11px;line-height:1.45;padding:2px}
   .drdoc .jh{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2px solid #0f5e4a;padding-bottom:10px}
   .drdoc .jh img{width:132px;display:block;margin-bottom:6px}
   .drdoc .co{font-size:10px;color:#5d6b76;line-height:1.5}
@@ -1465,7 +1465,7 @@ VIEWS.defect = async function(){
   const drawPreview = () => {
     const box = $('#d_preview'), inner = $('#d_pinner');
     inner.innerHTML = drDocHtml(B, asset(), photos, sign);
-    const k = Math.min(1, (box.clientWidth - 20) / 722);
+    const k = Math.min(1, (box.clientWidth - 20) / 704);
     inner.style.transform = 'scale(' + k + ')';
     box.style.height = Math.ceil(inner.firstChild.offsetHeight * k + 22) + 'px';
   };
@@ -1587,18 +1587,21 @@ VIEWS.defect = async function(){
       b.textContent = 'Making PDF...';
       await drLoadPdfLib();
       if (document.fonts && document.fonts.ready) await document.fonts.ready;
-      holder = document.createElement('div');   // behind the page, at the top-left (html2canvas cannot draw elements far off-screen)
-      holder.style.cssText = 'position:absolute;left:0;top:0;width:722px;background:#fff;z-index:-1;pointer-events:none';
-      holder.innerHTML = drDocHtml(B, asset(), photos, sign);
+      // clean white sheet on top of the page, fixed at the top-left, so nothing else is drawn into the PDF
+      // and nothing is cut off on narrow phone screens
+      holder = document.createElement('div');
+      holder.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;z-index:99999;background:#fff;overflow:hidden';
+      holder.innerHTML = '<div style="width:700px;background:#fff">' + drDocHtml(B, asset(), photos, sign) + '</div>';
       document.body.appendChild(holder);
       await Promise.all(Array.from(holder.querySelectorAll('img')).map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
       const sx = window.scrollX, sy = window.scrollY; window.scrollTo(0, 0);
+      const sheet = holder.querySelector('.drdoc');
       const uri = await html2pdf().set({
-        margin: [10, 10, 12, 10], filename: title() + '.pdf', image: {type: 'jpeg', quality: 0.92},
-        html2canvas: {scale: 2, useCORS: true, backgroundColor: '#ffffff'},
+        margin: [10, 10, 12, 10], filename: title() + '.pdf', image: {type: 'jpeg', quality: 0.95},
+        html2canvas: {scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0},
         jsPDF: {unit: 'mm', format: 'a4', orientation: 'portrait'},
         pagebreak: {mode: ['css', 'legacy'], avoid: ['tr', '.sign', '.meta']}
-      }).from(holder.firstChild).outputPdf('datauristring');
+      }).from(sheet).outputPdf('datauristring');
       window.scrollTo(sx, sy);
       b.textContent = 'Saving to Drive...';
       const r = await api('apiSaveDefect', ADMIN_PIN, {no: B.no, date: B.date, vehicle: B.vehicle.trim(), vehicleType: B.vehicleType, requester: B.requester,
