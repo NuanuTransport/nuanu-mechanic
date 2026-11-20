@@ -145,6 +145,12 @@
   .drdoc .ctr{text-align:center}
   .drdoc td img{width:132px;height:99px;object-fit:cover;border-radius:6px;border:1px solid #dde3e8;display:block;margin:2px auto}
   .drdoc .dr-t td{border:1px solid #dde3e8}
+  .drdoc .dr-t th{border:1px solid #0f5e4a}
+  .drdoc .dr-t tr.gt td{padding:9px 6px}
+  .drdoc .dr-t tr.gt td.blank{border:0;background:transparent}
+  .drdoc .dr-t tr.gt td.lab,.drdoc .dr-t tr.gt td.amt{background:#0f5e4a;border:1px solid #0f5e4a;color:#fff;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.4px;padding:7px 6px}
+  .drdoc .dr-t tr.gt td.lab{text-align:center}
+  .drdoc .dr-t tr.gt td.amt{text-transform:none;font-size:11px}
   .drdoc .dr-t td.num{white-space:nowrap}
   .drdoc .dr-t tr.opt td{border-top:1px solid #eef1f3}
   .drdoc .tot td{border-bottom:0;border-top:2px solid #14212b;font-weight:700;font-size:12px;padding-top:9px}
@@ -1321,17 +1327,18 @@ function drDocHtml(B, a, photos, sign){
   const type = (B.vehicleType || (a && a.type !== '-' ? a.type : '') || 'Vehicle').toUpperCase();
   const period = B.date ? DR_MONTHS[new Date(B.date + 'T00:00:00').getMonth()] + ' ' + B.date.slice(0, 4) : '';
   const money = v => '<span style="float:left">Rp</span>' + drMoney(v);
+  const cap = t => { t = String(t || '').trim(); return t.charAt(0).toUpperCase() + t.slice(1); };
   const rows = items.map((x, n) => {
-    if (x.kind === 'charge') return '<tr class="grp"><td class="ctr">' + (n + 1) + '</td><td colspan="2" class="ctr">' + h(x.desc) + '</td>' +
+    if (x.kind === 'charge') return '<tr class="grp"><td class="ctr">' + (n + 1) + '</td><td colspan="2" class="ctr">' + h(cap(x.desc)) + '</td>' +
       '<td class="ctr">' + h(x.qty) + '</td><td class="num">' + money(drItemTotal(x)) + '</td></tr>';
     const ph = (photos[B.items.indexOf(x)] || []).filter(Boolean);
     const opts = (x.options || []).filter(o => String(o.text).trim() || Number(o.price) > 0);
     const list = opts.length ? opts : [{text: '', price: 0}];
     const span = list.length > 1 ? ' rowspan="' + list.length + '"' : '';
     return list.map((o, k) => '<tr class="' + (k === 0 ? 'grp' : 'opt') + '">' +
-      (k === 0 ? '<td class="ctr"' + span + '>' + (n + 1) + '</td><td class="ctr"' + span + '>' + h(x.desc) + '</td>' +
+      (k === 0 ? '<td class="ctr"' + span + '>' + (n + 1) + '</td><td class="ctr"' + span + '>' + h(cap(x.desc)) + '</td>' +
         '<td class="ctr"' + span + '>' + ph.map(p => '<img src="' + p + '">').join('') + '</td>' : '') +
-      '<td class="ctr">' + h(o.text) + '</td><td class="num">' + (Number(o.price) > 0 ? money(o.price) : '') + '</td></tr>').join('');
+      '<td class="ctr">' + h(cap(o.text)) + '</td><td class="num">' + (Number(o.price) > 0 ? money(o.price) : '') + '</td></tr>').join('');
   }).join('');
   return '<div class="drdoc">' +
     '<div class="jh"><div><img src="' + DR.LOGO + '"><div class="co">' + DR.ADDRESS.map(h).join('<br>') + '</div></div>' +
@@ -1348,7 +1355,7 @@ function drDocHtml(B, a, photos, sign){
     '<h4>Details of defects and rectification</h4>' +
     '<table class="dr-t"><colgroup><col style="width:34px"><col style="width:170px"><col style="width:150px"><col><col style="width:140px"></colgroup>' +
       '<tr><th class="ctr">No.</th><th class="ctr">Description</th><th class="ctr">Photos</th><th class="ctr">Repair option</th><th class="ctr">Estimation price</th></tr>' + rows +
-      '<tr class="tot"><td colspan="3" style="border:0"></td><td class="num">Total</td><td class="num">' + money(total) + '</td></tr></table>' +
+      '<tr class="gt"><td colspan="3" class="blank"></td><td class="lab">TOTAL</td><td class="num amt">' + money(total) + '</td></tr></table>' +
     (B.notes ? '<div class="note">' + h(B.notes) + '</div>' : '') +
     '<div class="sign"><div><div class="t">Service Provider</div><div class="s">Internal Supervisor</div><div class="box">' + (sign ? '<img src="' + sign + '">' : '') + '</div>' +
       '<div class="ln">' + h(DR.SUPERVISOR) + '</div><div class="s">Transport / ' + h(drShort(B.date)) + '</div></div>' +
@@ -1406,6 +1413,8 @@ VIEWS.defect = async function(){
   let B = store.get('drDraft') || blank();
   B.items.forEach(x => { const f = (BOOT.fees || []).find(f => f.name === x.desc); if (f && DR_FEE_EN[f.id]) x.desc = DR_FEE_EN[f.id]; });
   B.items = drNormItems(B.items);
+  if (/^Note\s*:\s*Prices may change based on orders/i.test(B.notes || '')) B.notes = blank().notes;
+  if (/based on diagnose during inspection/i.test(B.subtitle || '')) B.subtitle = String(B.subtitle).replace(/Details of damage based on diagnose during inspection/i, 'Details of damage found during inspection');
   let photos = B.items.map(() => []);     // photos stay in memory only (too big for the draft)
   let sign = '';                          // Service Provider signature, kept privately in Drive
   const save = () => { try { store.set('drDraft', B); } catch(e){} };
